@@ -2,7 +2,7 @@
 
 A browser remake of *Bilbanan*, the Swedish slot-car Shockwave game from the early 2000s (once hosted on TV4 / Blip.se).
 
-**Play:** https://alecsharpie.github.io/bilbanan/
+**Play:** https://www.alecsharpie.me/bilbanan/
 
 - Drag track pieces from the top bar onto the board; drop them on the bin to remove them. Click a placed piece to rotate it.
 - Close the loop through the start piece, then click the checkered flag (or press Enter).
