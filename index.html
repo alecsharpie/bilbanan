@@ -384,95 +384,76 @@ function drawCtrl(c, x, y, s, i, letter, pressed) {
   c.restore();
 }
 function drawBird(c, x, y, s, press, holding) {
+  // flat, outline-free cartoon: one white blob, chunky beak, dot eye, flicky crest
   const cheer = holding && birdMode && state === 'done' && winner === 0;
-  const hop = cheer ? -Math.abs(Math.sin(clock * 9)) * 5 : 0;
-  const bob = press ? 6 : 0;
+  const hop = cheer ? -Math.abs(Math.sin(clock * 9)) * 6 : 0;
   const blink = (clock % 3.7) < 0.13;
-  const crestUp = (press || cheer) ? 1 : 0.3 + 0.06 * Math.sin(clock * 2);
-  const OUT = '#b3bcc6', LEG = '#6d7178';
+  const push = press ? 5 : 0;
+  const crest = (press || cheer) ? 1 : 0.15 + 0.1 * Math.sin(clock * 2.3);
+  const WHITE = '#ffffff', SHADE = '#e4e7ec', LEG = '#3a3a44';
   c.save(); c.translate(x, y + hop); c.scale(s, s);
-  c.lineJoin = 'round'; c.lineCap = 'round';
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  // legs
+  c.strokeStyle = LEG; c.lineWidth = 2.6;
+  c.beginPath(); c.moveTo(10, 36); c.lineTo(8, 55); c.moveTo(20, 35); c.lineTo(22, 55);
+  c.moveTo(2, 56); c.lineTo(13, 56); c.moveTo(17, 56); c.lineTo(28, 56); c.stroke();
+  // controller stands on the floor in front
+  if (holding) drawCtrl(c, -30, -6, 0.62, 0, '', press);
   // tail
-  c.fillStyle = '#eceff3'; c.strokeStyle = OUT; c.lineWidth = 1.2;
-  c.beginPath(); c.moveTo(12, 22); c.quadraticCurveTo(30, 38, 44, 56); c.quadraticCurveTo(34, 59, 25, 54);
-  c.quadraticCurveTo(13, 45, 3, 31); c.closePath(); c.fill(); c.stroke();
-  c.strokeStyle = '#cfd5dc'; c.lineWidth = 1;
-  c.beginPath(); c.moveTo(17, 33); c.lineTo(36, 53); c.moveTo(11, 35); c.lineTo(28, 54); c.stroke();
-  // standing leg
-  c.strokeStyle = LEG; c.lineWidth = 3.2;
-  c.beginPath(); c.moveTo(8, 30); c.lineTo(9, 45); c.stroke();
-  c.lineWidth = 2.4; c.beginPath();
-  c.moveTo(9, 45); c.lineTo(0, 46); c.moveTo(9, 45); c.lineTo(3, 49);
-  c.moveTo(9, 45); c.lineTo(17, 46); c.moveTo(9, 45); c.lineTo(16, 49); c.stroke();
-  // body
-  const bg = c.createRadialGradient(-8, -6, 3, 2, 8, 42);
-  bg.addColorStop(0, '#ffffff'); bg.addColorStop(1, '#dfe5ec');
-  c.fillStyle = bg; c.strokeStyle = OUT; c.lineWidth = 1.3;
-  c.beginPath(); c.moveTo(-6, -22); c.bezierCurveTo(-23, -14, -25, 12, -12, 28);
-  c.bezierCurveTo(-2, 40, 18, 38, 24, 24); c.bezierCurveTo(30, 8, 22, -14, 6, -24); c.closePath(); c.fill(); c.stroke();
-  // folded wing with scalloped coverts
-  const wg = c.createLinearGradient(0, -16, 30, 44);
-  wg.addColorStop(0, '#fbfcfd'); wg.addColorStop(1, '#d9e0e8');
-  c.fillStyle = wg;
-  c.beginPath(); c.moveTo(1, -16); c.bezierCurveTo(22, -12, 31, 14, 41, 45);
-  c.bezierCurveTo(31, 43, 24, 40, 17, 34); c.bezierCurveTo(5, 24, -1, 6, 1, -16); c.closePath(); c.fill(); c.stroke();
-  c.strokeStyle = '#c6cdd5'; c.lineWidth = 1;
-  for (let k = 0; k < 4; k++) { c.beginPath(); c.arc(7 + k * 6.5, 1 + k * 9, 7, 0.3, 2.3); c.stroke(); }
-  c.strokeStyle = 'rgba(255,208,50,.75)'; c.lineWidth = 1.6;
-  c.beginPath(); c.moveTo(21, 33); c.quadraticCurveTo(30, 39, 39, 44); c.stroke();
-  if (holding) {
-    // controller gripped in a raised foot, parrot-style
-    c.save(); c.translate(-25, -2); c.rotate(-0.12); drawCtrl(c, 0, 0, 0.5, 0, '', press); c.restore();
-    c.strokeStyle = LEG; c.lineWidth = 3.2;
-    c.beginPath(); c.moveTo(-8, 25); c.quadraticCurveTo(-14, 29, -20, 27); c.stroke();
-    c.fillStyle = LEG; c.beginPath(); c.ellipse(-22, 26, 4, 3.2, 0.3, 0, 7); c.fill();
-    c.lineWidth = 2.8;
-    for (const ty of [18, 25, 32]) {
-      c.strokeStyle = LEG; c.beginPath(); c.moveTo(-22, 26); c.quadraticCurveTo(-31, ty - 1, -34, ty + 2); c.stroke();
-      c.strokeStyle = '#2b2d31'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(-34, ty + 2); c.quadraticCurveTo(-35, ty + 4, -33, ty + 5); c.stroke();
-      c.lineWidth = 2.8;
-    }
+  c.fillStyle = WHITE;
+  c.beginPath(); c.moveTo(14, 16); c.quadraticCurveTo(40, 26, 56, 46); c.quadraticCurveTo(36, 50, 16, 40); c.closePath(); c.fill();
+  // body + head as one blob
+  c.beginPath(); c.ellipse(8, 14, 26, 27, -0.2, 0, 7); c.fill();
+  c.beginPath(); c.ellipse(-3, -25, 19.5, 18.5, 0, 0, 7); c.fill();
+  c.beginPath(); c.moveTo(-14, -14); c.quadraticCurveTo(-8, -6, -14, 4); c.lineTo(14, -6); c.lineTo(12, -24); c.closePath(); c.fill();
+  // soft belly shade
+  c.save(); c.beginPath(); c.ellipse(8, 14, 26, 27, -0.2, 0, 7); c.clip();
+  c.fillStyle = SHADE; c.beginPath(); c.ellipse(20, 34, 24, 14, -0.5, 0, 7); c.fill(); c.restore();
+  // crest: a few thin flicks off the back of the head
+  c.fillStyle = WHITE;
+  for (let k = 0; k < 4; k++) {
+    const a = (-0.35 - k * 0.32) - crest * 0.45, len = 22 - k * 3;
+    const bx = 8 - k * 3, by = -34 + k * 1.5, tx = bx + Math.cos(a) * len, ty = by + Math.sin(a) * len;
+    const nx = -Math.sin(a) * 3, ny = Math.cos(a) * 3;
+    c.beginPath(); c.moveTo(bx + nx, by + ny);
+    c.quadraticCurveTo((bx + tx) / 2 + nx * 1.6 - 2, (by + ty) / 2 + ny * 1.6 + 2, tx, ty);
+    c.quadraticCurveTo((bx + tx) / 2 - nx * 0.4, (by + ty) / 2 - ny * 0.4, bx - nx, by - ny);
+    c.closePath(); c.fill();
   }
-  // head: pecks down at the plunger while accelerating
-  c.save(); c.translate(-8, -30 + bob); c.rotate(press ? -0.22 : 0);
-  // crest, back feathers first
-  const relax = [-0.12, -0.32, -0.52, -0.72, -0.92], raised = [-0.95, -1.2, -1.45, -1.7, -1.95];
-  for (let k = 0; k < 5; k++) {
-    const a = relax[k] + (raised[k] - relax[k]) * crestUp, len = 26 - k * 2.6;
-    const bx = 5 - k * 2.2, by = -9 + k * 0.4;
-    const tx = bx + Math.cos(a) * len, ty = by + Math.sin(a) * len;
-    const px = -Math.sin(a), py = Math.cos(a), mx = (bx + tx) / 2, my = (by + ty) / 2;
-    const fg = c.createLinearGradient(bx, by, tx, ty);
-    fg.addColorStop(0, '#ffcf2e'); fg.addColorStop(1, '#fff2a0');
-    c.fillStyle = fg; c.strokeStyle = '#d9a91a'; c.lineWidth = 0.9;
-    c.beginPath(); c.moveTo(bx + px * 3, by + py * 3);
-    c.quadraticCurveTo(mx + px * 5 - py * 2, my + py * 5 + px * 2, tx, ty);
-    c.quadraticCurveTo(mx - px * 2.5 - py * 2, my - py * 2.5 + px * 2, bx - px * 3, by - py * 3);
-    c.closePath(); c.fill(); c.stroke();
-  }
-  const hg = c.createRadialGradient(-5, -5, 2, 0, 0, 17);
-  hg.addColorStop(0, '#ffffff'); hg.addColorStop(1, '#e4e9ef');
-  c.fillStyle = hg; c.strokeStyle = OUT; c.lineWidth = 1.3;
-  c.beginPath(); c.ellipse(0, 0, 16, 15, 0, 0, 7); c.fill(); c.stroke();
-  c.fillStyle = 'rgba(255,224,110,.45)'; c.beginPath(); c.ellipse(4, 5, 5.5, 4, 0.3, 0, 7); c.fill();
+  // beak: dark hooked top, lighter bottom
+  c.fillStyle = '#8d9098';
+  c.beginPath(); c.ellipse(-16, -17, 7, 5, 0.3, 0, 7); c.fill();
+  c.fillStyle = '#45484f';
+  c.beginPath(); c.moveTo(-10, -30); c.bezierCurveTo(-22, -32, -30, -24, -26, -13);
+  c.quadraticCurveTo(-21, -17, -12, -18); c.closePath(); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.25)';
+  c.beginPath(); c.ellipse(-17, -26, 4, 1.6, -0.3, 0, 7); c.fill();
   // eye
-  c.fillStyle = '#d6e6f2'; c.beginPath(); c.arc(-6, -3, 5, 0, 7); c.fill();
-  if (blink) { c.strokeStyle = '#2a2424'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-9, -3); c.lineTo(-3, -3); c.stroke(); }
+  if (blink) { c.strokeStyle = '#222'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(-3, -28); c.lineTo(2, -28); c.stroke(); }
   else {
-    c.fillStyle = '#1a1414'; c.beginPath(); c.arc(-6.3, -3, 2.9, 0, 7); c.fill();
-    c.fillStyle = '#fff'; c.beginPath(); c.arc(-7.2, -4, 1, 0, 7); c.fill();
+    c.fillStyle = '#222'; c.beginPath(); c.arc(-1, -29, 3.2, 0, 7); c.fill();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(-2, -30.2, 1.1, 0, 7); c.fill();
   }
-  // hooked beak
-  const kg = c.createLinearGradient(-26, -6, -12, 10);
-  kg.addColorStop(0, '#4a4f56'); kg.addColorStop(1, '#2a2d32');
-  c.fillStyle = kg;
-  c.beginPath(); c.moveTo(-12, -7); c.bezierCurveTo(-22, -10, -29, -2, -25, 9);
-  c.quadraticCurveTo(-24, 11, -22, 8); c.quadraticCurveTo(-20, 3, -15, 4); c.lineTo(-12, 2); c.closePath(); c.fill();
-  c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1;
-  c.beginPath(); c.moveTo(-15, -6); c.quadraticCurveTo(-22, -6, -24, 0); c.stroke();
-  c.fillStyle = '#33363c';
-  c.beginPath(); c.moveTo(-15, 4); c.quadraticCurveTo(-20, 9, -14, 11); c.lineTo(-11, 6); c.closePath(); c.fill();
-  c.restore();
+  if (holding) {
+    // lower wing hugs the controller, feathery tip wrapped round the front
+    c.fillStyle = WHITE;
+    c.beginPath(); c.moveTo(-2, 4); c.bezierCurveTo(-18, 2, -30, 6, -38, 12);
+    c.bezierCurveTo(-34, 24, -18, 26, -2, 24); c.closePath(); c.fill();
+    c.beginPath(); c.ellipse(-37, 16, 7, 8.5, 0.3, 0, 7); c.fill();
+    c.fillStyle = SHADE; c.beginPath(); c.ellipse(-37, 16, 7, 8.5, 0.3, 1.2, 3.2); c.closePath(); c.fill();
+    // upper wing rests on the plunger and pushes it down
+    const py = push;
+    c.fillStyle = WHITE;
+    c.beginPath(); c.moveTo(-2, -12 + py * 0.3); c.bezierCurveTo(-18, -20 + py, -34, -18 + py, -46, -14 + py);
+    c.bezierCurveTo(-40, -4 + py, -20, -2 + py * 0.5, -2, 4); c.closePath(); c.fill();
+    c.beginPath(); c.ellipse(-46, -10 + py, 8.5, 7, -0.2, 0, 7); c.fill();
+    c.fillStyle = SHADE;
+    c.beginPath(); c.moveTo(-47, -1.5 + py); c.quadraticCurveTo(-30, 0 + py * 0.6, -8, 2);
+    c.quadraticCurveTo(-28, -5 + py * 0.6, -44, -8 + py); c.closePath(); c.fill();
+  } else {
+    c.fillStyle = SHADE;
+    c.beginPath(); c.ellipse(12, 10, 12, 18, -0.4, 0, 7); c.fill();
+  }
   c.restore();
 }
 const SEG7 = [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f];
