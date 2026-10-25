@@ -384,75 +384,123 @@ function drawCtrl(c, x, y, s, i, letter, pressed) {
   c.restore();
 }
 function drawBird(c, x, y, s, press, holding) {
-  // flat, outline-free cartoon: one white blob, chunky beak, dot eye, flicky crest
-  const cheer = holding && birdMode && state === 'done' && winner === 0;
-  const hop = cheer ? -Math.abs(Math.sin(clock * 9)) * 6 : 0;
-  const blink = (clock % 3.7) < 0.13;
-  const push = press ? 5 : 0;
-  const crest = (press || cheer) ? 1 : 0.15 + 0.1 * Math.sin(clock * 2.3);
-  const WHITE = '#ffffff', SHADE = '#e4e7ec', LEG = '#3a3a44';
-  c.save(); c.translate(x, y + hop); c.scale(s, s);
-  c.lineCap = 'round'; c.lineJoin = 'round';
-  // legs
-  c.strokeStyle = LEG; c.lineWidth = 2.6;
-  c.beginPath(); c.moveTo(10, 36); c.lineTo(8, 55); c.moveTo(20, 35); c.lineTo(22, 55);
-  c.moveTo(2, 56); c.lineTo(13, 56); c.moveTo(17, 56); c.lineTo(28, 56); c.stroke();
-  // controller stands on the floor in front
-  if (holding) drawCtrl(c, -30, -6, 0.62, 0, '', press);
-  // tail
-  c.fillStyle = WHITE;
-  c.beginPath(); c.moveTo(14, 16); c.quadraticCurveTo(40, 26, 56, 46); c.quadraticCurveTo(36, 50, 16, 40); c.closePath(); c.fill();
-  // body + head as one blob
-  c.beginPath(); c.ellipse(8, 14, 26, 27, -0.2, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(-3, -25, 19.5, 18.5, 0, 0, 7); c.fill();
-  c.beginPath(); c.moveTo(-14, -14); c.quadraticCurveTo(-8, -6, -14, 4); c.lineTo(14, -6); c.lineTo(12, -24); c.closePath(); c.fill();
-  // soft belly shade
-  c.save(); c.beginPath(); c.ellipse(8, 14, 26, 27, -0.2, 0, 7); c.clip();
-  c.fillStyle = SHADE; c.beginPath(); c.ellipse(20, 34, 24, 14, -0.5, 0, 7); c.fill(); c.restore();
-  // crest: a few thin flicks off the back of the head
-  c.fillStyle = WHITE;
-  for (let k = 0; k < 4; k++) {
-    const a = (-0.35 - k * 0.32) - crest * 0.45, len = 22 - k * 3;
-    const bx = 8 - k * 3, by = -34 + k * 1.5, tx = bx + Math.cos(a) * len, ty = by + Math.sin(a) * len;
-    const nx = -Math.sin(a) * 3, ny = Math.cos(a) * 3;
-    c.beginPath(); c.moveTo(bx + nx, by + ny);
-    c.quadraticCurveTo((bx + tx) / 2 + nx * 1.6 - 2, (by + ty) / 2 + ny * 1.6 + 2, tx, ty);
-    c.quadraticCurveTo((bx + tx) / 2 - nx * 0.4, (by + ty) / 2 - ny * 0.4, bx - nx, by - ny);
-    c.closePath(); c.fill();
+  // The cockatoo: chubby, sulphur crest fanned out, smug half-lidded eye and a cheeky grin,
+  // leaning one wing on the plunger like winning is no effort at all.
+  const INK = '#9a8fb5', SHADE = '#ece8f5', W = '#ffffff';
+  c.save(); c.translate(x, y); c.scale(s, s);
+  c.lineJoin = 'round'; c.lineCap = 'round';
+
+  // ground shadow
+  c.fillStyle = 'rgba(40,0,20,.22)';
+  c.beginPath(); c.ellipse(4, 58.5, 40, 3.2, 0, 0, 7); c.fill();
+
+  // crest (behind the head): golden at the root, lemon at the tips, curling forward
+  const CREST = [[-2.35, 22], [-2.05, 27], [-1.75, 29], [-1.45, 28], [-1.15, 25], [-0.85, 20]];
+  CREST.forEach(([a, len], k) => {
+    const bx = -6 + k * 3.2, by = -45 + Math.abs(k - 2.5) * 1.2;
+    const ta = a - 0.28, tx = bx + Math.cos(ta) * len, ty = by + Math.sin(ta) * len;
+    const px = -Math.sin(a), py = Math.cos(a), w = 4.6;
+    const mx = bx + Math.cos(a) * len * 0.55, my = by + Math.sin(a) * len * 0.55;
+    const g = c.createLinearGradient(bx, by, tx, ty);
+    g.addColorStop(0, '#ffad14'); g.addColorStop(0.55, '#ffd23a'); g.addColorStop(1, '#fff1a1');
+    c.fillStyle = g; c.strokeStyle = '#d98e00'; c.lineWidth = 1.1;
+    c.beginPath(); c.moveTo(bx + px * w * 0.6, by + py * w * 0.6);
+    c.quadraticCurveTo(mx + px * w * 1.3, my + py * w * 1.3, tx, ty);
+    c.quadraticCurveTo(mx - px * w * 0.7, my - py * w * 0.7, bx - px * w * 0.6, by - py * w * 0.6);
+    c.closePath(); c.fill(); c.stroke();
+  });
+
+  // legs and feet
+  c.strokeStyle = '#8b8f9e'; c.lineWidth = 3.6;
+  c.beginPath(); c.moveTo(6, 38); c.lineTo(5, 54); c.moveTo(17, 37); c.lineTo(19, 54); c.stroke();
+  c.lineWidth = 2.6;
+  c.beginPath();
+  for (const fx of [5, 19]) { c.moveTo(fx, 55); c.lineTo(fx - 7, 57.5); c.moveTo(fx, 55); c.lineTo(fx - 4, 58.5); c.moveTo(fx, 55); c.lineTo(fx + 5, 58); }
+  c.stroke();
+
+  // silhouette: tail feathers, pear body, big round head
+  const tail = [
+    p => { p.moveTo(14, 22); p.quadraticCurveTo(38, 28, 56, 46); p.quadraticCurveTo(49, 53, 40, 49); p.quadraticCurveTo(24, 40, 10, 32); },
+    p => { p.moveTo(10, 27); p.quadraticCurveTo(30, 40, 45, 57); p.quadraticCurveTo(36, 60, 29, 55); p.quadraticCurveTo(16, 45, 6, 34); }
+  ];
+  const body = p => { p.moveTo(-10, -16); p.bezierCurveTo(-25, -8, -27, 16, -14, 32); p.bezierCurveTo(-4, 44, 18, 44, 26, 30);
+                      p.bezierCurveTo(34, 16, 30, -6, 16, -16); p.bezierCurveTo(8, -22, -2, -21, -10, -16); };
+  const head = p => { p.moveTo(19, -30); p.arc(-2, -30, 21, 0, Math.PI * 2); };
+  const path = fn => { c.beginPath(); fn(c); c.closePath(); };
+  c.strokeStyle = INK; c.lineWidth = 3;
+  for (const fn of [...tail, body, head]) { path(fn); c.stroke(); }
+  for (const fn of tail) {
+    path(fn); c.fillStyle = W; c.fill();
+    c.save(); c.clip(); c.fillStyle = '#fff4c7'; c.beginPath(); c.ellipse(40, 50, 14, 6, 0.7, 0, 7); c.fill(); c.restore();
+    path(fn); c.lineWidth = 1.2; c.stroke();
   }
-  // beak: dark hooked top, lighter bottom
-  c.fillStyle = '#8d9098';
-  c.beginPath(); c.ellipse(-16, -17, 7, 5, 0.3, 0, 7); c.fill();
-  c.fillStyle = '#45484f';
-  c.beginPath(); c.moveTo(-10, -30); c.bezierCurveTo(-22, -32, -30, -24, -26, -13);
-  c.quadraticCurveTo(-21, -17, -12, -18); c.closePath(); c.fill();
-  c.fillStyle = 'rgba(255,255,255,.25)';
-  c.beginPath(); c.ellipse(-17, -26, 4, 1.6, -0.3, 0, 7); c.fill();
-  // eye
-  if (blink) { c.strokeStyle = '#222'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(-3, -28); c.lineTo(2, -28); c.stroke(); }
-  else {
-    c.fillStyle = '#222'; c.beginPath(); c.arc(-1, -29, 3.2, 0, 7); c.fill();
-    c.fillStyle = '#fff'; c.beginPath(); c.arc(-2, -30.2, 1.1, 0, 7); c.fill();
-  }
+  c.fillStyle = W;
+  path(body); c.fill();
+  c.save(); path(body); c.clip();
+  c.fillStyle = SHADE; c.beginPath(); c.ellipse(20, 32, 26, 17, -0.55, 0, 7); c.fill();
+  c.restore();
+  path(head); c.fill();
+  c.save(); path(head); c.clip();
+  c.fillStyle = SHADE; c.beginPath(); c.ellipse(16, -14, 14, 11, -0.6, 0, 7); c.fill();
+  c.restore();
+  // chest fluff
+  c.strokeStyle = 'rgba(154,143,181,.45)'; c.lineWidth = 1.1;
+  for (const [fx, fy] of [[-18, 4], [-15, 13], [-19, 20], [-11, 22]]) { c.beginPath(); c.arc(fx, fy, 3.2, 0.2, 2.2); c.stroke(); }
+
+  // rosy cheek
+  c.fillStyle = 'rgba(255,128,150,.42)';
+  c.beginPath(); c.ellipse(1, -21, 6.5, 4, -0.15, 0, 7); c.fill();
+
+  // smug, half-lidded eye
+  c.save();
+  c.beginPath(); c.ellipse(-6, -33, 7.6, 7.2, 0, 0, 7);
+  c.fillStyle = '#dcebf8'; c.fill(); c.clip();
+  c.fillStyle = '#1d1824'; c.beginPath(); c.ellipse(-4.2, -31.4, 4.4, 4.8, 0, 0, 7); c.fill();
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(-5.6, -32.2, 1.5, 0, 7); c.fill();
+  c.beginPath(); c.arc(-2.4, -29.4, 0.8, 0, 7); c.fill();
+  c.fillStyle = W;                                   // the lid
+  c.beginPath(); c.moveTo(-15, -41); c.lineTo(3, -41); c.lineTo(3, -34.6);
+  c.quadraticCurveTo(-5, -35.4, -15, -35); c.closePath(); c.fill();
+  c.restore();
+  c.strokeStyle = '#5c5273'; c.lineWidth = 1.6;
+  c.beginPath(); c.moveTo(-13.6, -35); c.quadraticCurveTo(-5, -35.4, 1.8, -34.6); c.stroke();
+  c.strokeStyle = INK; c.lineWidth = 1.7;                // cocked brow
+  c.beginPath(); c.moveTo(-13, -43); c.quadraticCurveTo(-7, -48.5, 0, -45); c.stroke();
+  c.strokeStyle = INK; c.lineWidth = 1;
+  c.beginPath(); c.ellipse(-6, -33, 7.6, 7.2, 0, 0.1, Math.PI * 2 - 0.1); c.stroke();
+
+  // beak: open in a grin, pink tongue, smile line into the cheek
+  c.fillStyle = '#3b2430';
+  c.beginPath(); c.moveTo(-16, -26.5); c.lineTo(-29, -24); c.lineTo(-26, -19); c.lineTo(-15, -20); c.closePath(); c.fill();
+  c.fillStyle = '#ff7f98'; c.beginPath(); c.ellipse(-22.5, -21.6, 3.4, 1.9, -0.15, 0, 7); c.fill();
+  c.fillStyle = '#5d6271';
+  c.beginPath(); c.moveTo(-15, -20.5); c.quadraticCurveTo(-24, -21, -26.5, -18.5); c.quadraticCurveTo(-21, -14, -14, -17); c.closePath(); c.fill();
+  const bg = c.createLinearGradient(-30, -40, -18, -20);
+  bg.addColorStop(0, '#585e6e'); bg.addColorStop(1, '#353946');
+  c.fillStyle = bg;
+  c.beginPath(); c.moveTo(-14, -39); c.bezierCurveTo(-27, -43, -39, -32, -35, -18);
+  c.quadraticCurveTo(-32, -21, -29, -23.5); c.quadraticCurveTo(-23, -26.5, -15, -26.5); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.6;
+  c.beginPath(); c.moveTo(-18, -38.5); c.quadraticCurveTo(-28, -38, -32, -30); c.stroke();
+  c.strokeStyle = INK; c.lineWidth = 1.3;
+  c.beginPath(); c.moveTo(-14.5, -21.5); c.quadraticCurveTo(-11, -21.5, -8.5, -25); c.stroke();
+
   if (holding) {
-    // lower wing hugs the controller, feathery tip wrapped round the front
-    c.fillStyle = WHITE;
-    c.beginPath(); c.moveTo(-2, 4); c.bezierCurveTo(-18, 2, -30, 6, -38, 12);
-    c.bezierCurveTo(-34, 24, -18, 26, -2, 24); c.closePath(); c.fill();
-    c.beginPath(); c.ellipse(-37, 16, 7, 8.5, 0.3, 0, 7); c.fill();
-    c.fillStyle = SHADE; c.beginPath(); c.ellipse(-37, 16, 7, 8.5, 0.3, 1.2, 3.2); c.closePath(); c.fill();
-    // upper wing rests on the plunger and pushes it down
-    const py = push;
-    c.fillStyle = WHITE;
-    c.beginPath(); c.moveTo(-2, -12 + py * 0.3); c.bezierCurveTo(-18, -20 + py, -34, -18 + py, -46, -14 + py);
-    c.bezierCurveTo(-40, -4 + py, -20, -2 + py * 0.5, -2, 4); c.closePath(); c.fill();
-    c.beginPath(); c.ellipse(-46, -10 + py, 8.5, 7, -0.2, 0, 7); c.fill();
-    c.fillStyle = SHADE;
-    c.beginPath(); c.moveTo(-47, -1.5 + py); c.quadraticCurveTo(-30, 0 + py * 0.6, -8, 2);
-    c.quadraticCurveTo(-28, -5 + py * 0.6, -44, -8 + py); c.closePath(); c.fill();
-  } else {
-    c.fillStyle = SHADE;
-    c.beginPath(); c.ellipse(12, 10, 12, 18, -0.4, 0, 7); c.fill();
+    drawCtrl(c, -30, 1, 0.58, 0, '', false);
+    // near wing, tip resting on the plunger
+    const wing = p => { p.moveTo(10, -8); p.bezierCurveTo(-2, -14, -20, -13, -33, -8); p.bezierCurveTo(-42, -5, -42, 1, -34, 0.5);
+                        p.bezierCurveTo(-20, 0, -4, 8, 8, 12); p.bezierCurveTo(16, 8, 16, -3, 10, -8); };
+    path(wing); c.fillStyle = W; c.fill();
+    c.strokeStyle = INK; c.lineWidth = 1.6;                // outline the front only; the back melts into the body
+    c.beginPath(); c.moveTo(6, -10.5); c.bezierCurveTo(-2, -14, -20, -13, -33, -8); c.bezierCurveTo(-42, -5, -42, 1, -34, 0.5);
+    c.bezierCurveTo(-20, 0, -4, 8, 5, 10.5); c.stroke();
+    c.save(); path(wing); c.clip();
+    c.fillStyle = SHADE; c.beginPath(); c.ellipse(-10, 9, 30, 7, -0.3, 0, 7); c.fill();
+    c.restore();
+    c.strokeStyle = INK; c.lineWidth = 1.1;
+    for (const [ax, ay, bx2, by2] of [[-30, 0.6, -24, -6], [-23, 1.6, -16, -5], [-16, 3.5, -9, -3]]) {
+      c.beginPath(); c.moveTo(ax, ay); c.quadraticCurveTo((ax + bx2) / 2 + 1.5, (ay + by2) / 2 + 1, bx2, by2); c.stroke();
+    }
   }
   c.restore();
 }
@@ -515,6 +563,7 @@ const TOOLS = [['SE',36,29,1],['SW',82,29,1],['NE',128,29,1],['NW',174,29,1],['X
     const bb = bboxOf(t), cy = curve ? y - (bb.y0 + bb.y1) / 2 * ICON : y;
     return {t, cx: x, cy, hit: {x: x + bb.x0 * ICON, y: cy + bb.y0 * ICON, w: (bb.x1 - bb.x0) * ICON, h: (bb.y1 - bb.y0) * ICON}};
   });
+const FLAG_FALLBACK = {x: 44, y: 80};   // board full: flag sits over the top-left cell
 const TRASH = {x: 363, y: 4, w: 38, h: 46};
 const BIRD_TB = {x: 492, y: 2, w: 48, h: 50};
 const XBOX = {x: 552, y: 16, w: 20, h: 20};
@@ -532,7 +581,7 @@ function drawToolbar(c) {
     c.save(); c.translate(T.cx, T.cy); c.scale(ICON, ICON); drawPiece(c, T.t, 0, 0); c.restore();
   }
   drawTrash(c, 382, 27, drag && drag.moved && inR(TRASH, drag.x, drag.y));
-  if (!birdMode) drawBird(c, 520, 30, 0.42, false, true);
+  if (!birdMode) drawBird(c, 520, 32, 0.38, false, true);
   drawXBox(c);
 }
 function drawXBox(c) {
@@ -568,7 +617,7 @@ function drawPanel(c) {
     c.fillStyle = canSet ? '#ffd81f' : 'rgba(255,216,31,.35)';
     c.beginPath(); c.moveTo(596, 56); c.lineTo(608, 56); c.lineTo(602, 48); c.fill();
     c.beginPath(); c.moveTo(596, 62); c.lineTo(608, 62); c.lineTo(602, 70); c.fill();
-    drawBird(c, 556, 128, 0.95, cars[0] && cars[0].on, true);
+    drawBird(c, 554, 132, 0.86, false, true);
   } else {
     drawCtrl(c, 542, 64, 1, 0, 'D', pressed(0));
   }
@@ -809,7 +858,7 @@ function draw() {
   if (state === 'build') {
     if (segs) {
       if (spot) drawFlag(ctx, spot.x + spot.w / 2 + 4, spot.y + spot.h / 2 - 2, Math.min(1.2, spot.h / 70));
-      else drawFlag(ctx, 430, 210, 0.8);
+      else drawFlag(ctx, FLAG_FALLBACK.x, FLAG_FALLBACK.y, 0.8);
     }
   }
   if (state === 'build') drawToolbar(ctx); else drawXBox(ctx);
@@ -854,7 +903,7 @@ cv.addEventListener('pointerdown', e => {
   if (birdMode && inR(NIV_DN, x, y)) { level = Math.max(1, level - 1); sfx.click(); save(); return; }
   if (birdMode && inR(BIRD_PANEL, x, y)) { birdMode = false; resetCars(); sfx.click(); save(); return; }
   if (!birdMode && inR(BIRD_TB, x, y)) { birdMode = true; resetCars(); sfx.squawk(); save(); return; }
-  if (segs && ((spot && inR(spot, x, y)) || (!spot && Math.hypot(x - 430, y - 210) < 40))) { startRace(); return; }
+  if (segs && ((spot && inR(spot, x, y)) || (!spot && Math.hypot(x - FLAG_FALLBACK.x, y - FLAG_FALLBACK.y) < 40))) { startRace(); return; }
   for (const T of TOOLS) if (inR(T.hit, x, y)) {
     drag = {type: T.t, from: null, ox: (x - T.cx) / ICON, oy: (y - T.cy) / ICON, x, y, sx: x, sy: y, moved: true, id: e.pointerId};
     sfx.click(); return;
