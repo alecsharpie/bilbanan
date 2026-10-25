@@ -80,7 +80,6 @@ let state = 'build';          // build | countdown | race | done
 let cdT = 0, goAt = 2.9, raceT = 0, endT = 0, winner = -1, doneT = 0;
 let lamps = ['off','off','off','off'];
 let cars = [];
-let cam = {x:0, y:0};
 let drag = null;              // {type, from:{c,r}|null, ox, oy, x, y, moved, sx, sy}
 let clearArm = 0;
 const keyDown = [false, false];
@@ -607,7 +606,7 @@ function timeOf(i) {
 /* ---------- cars & race ---------- */
 function mkCar(i) {
   return {i, seg: 0, s: 30, lane: i === 0 ? 1 : 0, v: 0, slip: 0, turn: 0, crash: null, laps: 0, armed: false,
-          lapStart: 0, best: null, finishT: null, on: false, ai: false, noise: 1, grace: 0};
+          lapStart: 0, best: null, finishT: null, on: false, ai: false, noise: 1};
 }
 function pressed(i) {
   if (keyDown[i]) return true;
@@ -631,7 +630,6 @@ function startRace() {
   resetCars(); state = 'countdown'; cdT = 0; raceT = 0; winner = -1;
   goAt = 2.6 + Math.random() * 0.7;
   lamps = ['off','off','off','off'];
-  const st = findStart(), [sx, sy] = cc(st[0], st[1]); cam.x = sx; cam.y = sy;
   hintEl.textContent = 'Wait for the green light…';
 }
 function stopRace() {
@@ -688,10 +686,9 @@ function stepCar(car, dt) {
     C.x += C.vx * dt; C.y += C.vy * dt; C.ang += C.spin * dt;
     if (C.x < 8 || C.x > W - 8) { C.vx *= -0.5; C.x = Math.min(W - 8, Math.max(8, C.x)); }
     if (C.y < 8 || C.y > H - 8) { C.vy *= -0.5; C.y = Math.min(H - 8, Math.max(8, C.y)); }
-    if (C.t > 1.9) { car.crash = null; car.grace = 1.2; }
+    if (C.t > 1.9) car.crash = null;
     return;
   }
-  if (car.grace > 0) car.grace -= dt;
   const on = car.on;
   if (on) car.v += (VMAX - car.v) * dt / TAU_A;
   else car.v = Math.max(0, car.v - (car.v / TAU_B + BRK_C) * dt);
@@ -730,30 +727,9 @@ function update(dt) {
     const n = Math.max(1, Math.ceil(dt / 0.004)), h = dt / n;
     for (let k = 0; k < n; k++) {
       for (const car of cars) stepCar(car, h);
-      const [a, b] = cars;
-      if (!a.crash && !b.crash && a.grace <= 0 && b.grace <= 0 && (a.v > 15 || b.v > 15)) {
-        const pa = carPose(a), pb = carPose(b);
-        // only side-on hits (crossings, lane changers) wreck cars; same-direction cars slip past
-        let da = Math.abs(pa.ang - pb.ang) % (2 * Math.PI); if (da > Math.PI) da = 2 * Math.PI - da;
-        if (Math.hypot(pa.x - pb.x, pa.y - pb.y) < 12 && da > 0.35) { crash(a); crash(b); }
-      }
     }
   } else {
     for (const car of cars) car.on = false;
-  }
-  // camera
-  if (segs && cars.length) {
-    let tx, ty;
-    if (state === 'countdown') { const st = findStart(), p = cc(st[0], st[1]); tx = p[0]; ty = p[1]; }
-    else {
-      let pick = cars[1];
-      if (!birdMode) {
-        const prog = c => c.laps * 1000 + c.seg + c.s / 100;
-        pick = prog(cars[0]) > prog(cars[1]) ? cars[0] : cars[1];
-      }
-      const p = carPose(pick); tx = p.x; ty = p.y;
-    }
-    const k = Math.min(1, dt * 5); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
   }
   // audio
   if (AC && engines.length) {
@@ -806,19 +782,6 @@ function drawCars(c) {
     drawCar(c, p.x, p.y, p.ang, car.i, a);
   }
 }
-function drawInset(c) {
-  if (!spot || !segs) return;
-  const {x, y, w, h} = spot, Z = 2.1;
-  c.save();
-  c.fillStyle = '#2b2a2c'; rr(c, x - 3, y - 3, w + 6, h + 6, 4); c.fill();
-  c.beginPath(); c.rect(x, y, w, h); c.clip();
-  c.fillStyle = '#ffd81f'; c.fillRect(x, y, w, h);
-  c.translate(x + w / 2, y + h / 2); c.scale(Z, Z); c.translate(-cam.x, -cam.y);
-  drawTrackVector(c, false); drawStartDynamic(c); drawCars(c);
-  c.restore();
-  c.fillStyle = '#ff2b2b'; c.beginPath(); c.arc(x + 8, y + 8, 3, 0, 7); c.fill();
-  c.font = 'bold 8px Verdana, sans-serif'; c.textAlign = 'left'; c.fillStyle = '#fff'; c.fillText('TV', x + 14, y + 11);
-}
 function drawLoose(c) {
   if (segs) return;
   const pulse = 0.55 + 0.45 * Math.sin(clock * 6);
@@ -867,7 +830,7 @@ function draw() {
       if (spot) drawFlag(ctx, spot.x + spot.w / 2 + 4, spot.y + spot.h / 2 - 2, Math.min(1.2, spot.h / 70));
       else drawFlag(ctx, 430, 210, 0.8);
     }
-  } else drawInset(ctx);
+  }
   if (state === 'build') drawToolbar(ctx); else drawXBox(ctx);
   drawPanel(ctx);
   if (drag && drag.moved) {
