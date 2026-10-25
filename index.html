@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Bilbanan</title>
+<title>Not Bilbanan</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* Layout: one yellow toy-board canvas centred on a maroon tabletop, a single help strip beneath. */
@@ -27,6 +27,7 @@ canvas{display:block;touch-action:none;border-radius:6px;background:var(--board)
   box-shadow:0 12px 40px rgba(0,0,0,.45);user-select:none;-webkit-user-select:none;cursor:default}
 .bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px;max-width:900px;text-align:center}
 .bar p{margin:0}
+h1{margin:0;font:bold italic 22px/1.2 var(--font);color:var(--board);letter-spacing:.5px}
 .hint{font-weight:bold;font-style:italic;color:var(--ink)}
 .keys{color:var(--ink-dim)}
 kbd{display:inline-block;min-width:1.4em;padding:0 .35em;border-radius:4px;background:var(--board);color:var(--key);
@@ -36,10 +37,11 @@ button:focus-visible{outline:2px solid var(--board);outline-offset:2px}
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Bilbanan slot car track. Build a loop, then race."></canvas>
+<h1 id="ttl">Not Bilbanan</h1>
+<canvas id="game" aria-label="Not Bilbanan slot car track. Build a loop, then race."></canvas>
 <div class="bar" id="bar">
   <p class="hint" id="hint">Drag track pieces onto the board.</p>
-  <p class="keys">Hold <kbd>D</kbd> red · <kbd>K</kbd> orange (or <kbd>Space</kbd>) · or press a controller</p>
+  <p class="keys">2 players: hold <kbd>D</kbd> red · <kbd>K</kbd> orange — or tap the on&#8209;screen controllers</p>
   <button id="snd" type="button">Sound on</button>
 </div>
 
@@ -982,16 +984,16 @@ function changed() { trackDirty = true; analyse(); resetCars(); save(); }
 
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
-  if (k === 'd' || k === 'k' || k === ' ') { audio(); e.preventDefault(); }
+  if (k === 'd' || k === 'k') { audio(); e.preventDefault(); }
   if (k === 'd' && !birdMode) keyDown[0] = true;
-  if (k === 'k' || k === ' ') keyDown[1] = true;
+  if (k === 'k') keyDown[1] = true;
   if (k === 'enter') { audio(); if (state === 'build') startRace(); else if (state === 'done') stopRace(); }
   if (k === 'escape' && state !== 'build') stopRace();
 });
 window.addEventListener('keyup', e => {
   const k = e.key.toLowerCase();
   if (k === 'd') keyDown[0] = false;
-  if (k === 'k' || k === ' ') keyDown[1] = false;
+  if (k === 'k') keyDown[1] = false;
 });
 window.addEventListener('blur', () => { keyDown[0] = keyDown[1] = false; ptrPress.clear(); });
 
@@ -1000,7 +1002,7 @@ function resize() {
   const bar = document.getElementById('bar');
   const cs = getComputedStyle(document.body);
   const availW = document.body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const availH = document.body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - bar.offsetHeight - 10;
+  const availH = document.body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - bar.offsetHeight - document.getElementById('ttl').offsetHeight - 20;
   scale = Math.max(0.3, Math.min(availW / W, availH / H));
   dpr = Math.min(3, window.devicePixelRatio || 1);
   cv.style.width = Math.floor(W * scale) + 'px'; cv.style.height = Math.floor(H * scale) + 'px';

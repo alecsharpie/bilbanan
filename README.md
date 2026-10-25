@@ -1,6 +1,6 @@
-# Bilbanan
+# Not Bilbanan
 
-A browser remake of *Bilbanan*, the Swedish slot-car Shockwave game from the early 2000s (once hosted on TV4 / Blip.se).
+A browser homage to *Bilbanan*, the Swedish slot-car Shockwave game from the early 2000s (once hosted on TV4 / Blip.se).
 
 **Play:** https://www.alecsharpie.me/bilbanan/
 
