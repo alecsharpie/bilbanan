@@ -463,7 +463,7 @@ function drawBird(c, x, y, s, press, holding) {
   c.quadraticCurveTo(-5, -35.4, -15, -35); c.closePath(); c.fill();
   c.restore();
   c.strokeStyle = '#5c5273'; c.lineWidth = 1.6;
-  c.beginPath(); c.moveTo(-13.6, -35); c.quadraticCurveTo(-5, -35.4, 1.8, -34.6); c.stroke();
+  c.beginPath(); c.moveTo(-13.2, -35); c.quadraticCurveTo(-5, -35.4, 1, -34.7); c.stroke();
   c.strokeStyle = INK; c.lineWidth = 1.7;                // cocked brow
   c.beginPath(); c.moveTo(-13, -43); c.quadraticCurveTo(-7, -48.5, 0, -45); c.stroke();
   c.strokeStyle = INK; c.lineWidth = 1;
@@ -491,11 +491,13 @@ function drawBird(c, x, y, s, press, holding) {
     const wing = p => { p.moveTo(10, -8); p.bezierCurveTo(-2, -14, -20, -13, -33, -8); p.bezierCurveTo(-42, -5, -42, 1, -34, 0.5);
                         p.bezierCurveTo(-20, 0, -4, 8, 8, 12); p.bezierCurveTo(16, 8, 16, -3, 10, -8); };
     path(wing); c.fillStyle = W; c.fill();
-    c.strokeStyle = INK; c.lineWidth = 1.6;                // outline the front only; the back melts into the body
+    c.strokeStyle = INK; c.lineWidth = 2.2;                // outline the front only; the back melts into the body
     c.beginPath(); c.moveTo(6, -10.5); c.bezierCurveTo(-2, -14, -20, -13, -33, -8); c.bezierCurveTo(-42, -5, -42, 1, -34, 0.5);
     c.bezierCurveTo(-20, 0, -4, 8, 5, 10.5); c.stroke();
     c.save(); path(wing); c.clip();
-    c.fillStyle = SHADE; c.beginPath(); c.ellipse(-10, 9, 30, 7, -0.3, 0, 7); c.fill();
+    const ws = c.createLinearGradient(-34, 0, 12, 0);
+    ws.addColorStop(0, SHADE); ws.addColorStop(0.65, SHADE); ws.addColorStop(1, 'rgba(236,232,245,0)');
+    c.fillStyle = ws; c.beginPath(); c.ellipse(-12, 8, 28, 6.5, -0.3, 0, 7); c.fill();
     c.restore();
     c.strokeStyle = INK; c.lineWidth = 1.1;
     for (const [ax, ay, bx2, by2] of [[-30, 0.6, -24, -6], [-23, 1.6, -16, -5], [-16, 3.5, -9, -3]]) {
@@ -520,16 +522,29 @@ function drawLCD(c, x, y, val, i) {
   }
 }
 function drawTrash(c, x, y, hot) {
+  // see-through grey can, wide open rim, two fat green recycling arrows
   c.save(); c.translate(x, y);
-  c.fillStyle = hot ? '#c7c7c7' : '#9c9ea2'; c.strokeStyle = '#5d5f63'; c.lineWidth = 1.2;
-  c.beginPath(); c.moveTo(-12, -14); c.lineTo(12, -14); c.lineTo(9, 18); c.quadraticCurveTo(0, 22, -9, 18); c.closePath(); c.fill(); c.stroke();
-  c.fillStyle = hot ? '#e2e2e2' : '#b9bbbf'; c.beginPath(); c.ellipse(0, -14, 13, 4, 0, 0, 7); c.fill(); c.stroke();
-  c.fillStyle = '#3c3e42'; c.beginPath(); c.ellipse(0, -14, 10, 2.6, 0, 0, 7); c.fill();
-  c.strokeStyle = '#21a83a'; c.lineWidth = 2.6;
-  c.beginPath(); c.arc(0, 3, 6, -2.6, 0.3); c.stroke(); c.beginPath(); c.arc(0, 3, 6, 0.55, 2.9); c.stroke();
-  c.fillStyle = '#21a83a';
-  c.beginPath(); c.moveTo(6.5, 6); c.lineTo(3, 3); c.lineTo(8.5, 1.5); c.fill();
-  c.beginPath(); c.moveTo(-6.5, 0); c.lineTo(-3, 3); c.lineTo(-8.5, 4.5); c.fill();
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  const g = c.createLinearGradient(-13, 0, 13, 0);
+  g.addColorStop(0, hot ? '#d4d5d9' : '#a7a9ae'); g.addColorStop(0.3, hot ? '#eeeff1' : '#c4c6ca'); g.addColorStop(1, hot ? '#b9bbc0' : '#8d8f94');
+  c.fillStyle = g; c.strokeStyle = '#5a5c61'; c.lineWidth = 1.1;
+  c.beginPath(); c.moveTo(-14, -13); c.lineTo(-10.5, 16); c.quadraticCurveTo(0, 21, 10.5, 16); c.lineTo(14, -13); c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1;          // faint ribs
+  for (const k of [-0.62, 0.62]) { c.beginPath(); c.moveTo(k * 14, -10); c.lineTo(k * 10.5, 16.5); c.stroke(); }
+  // open mouth: grey inside, light chunky rim
+  const m = c.createLinearGradient(0, -18, 0, -8);
+  m.addColorStop(0, '#5d5f64'); m.addColorStop(1, '#9fa1a6');
+  c.fillStyle = m; c.beginPath(); c.ellipse(0, -13, 14, 5, 0, 0, 7); c.fill();
+  c.strokeStyle = '#5a5c61'; c.lineWidth = 3.4; c.stroke();
+  c.strokeStyle = hot ? '#f6f6f8' : '#d9dade'; c.lineWidth = 2; c.stroke();
+  // recycling arrows
+  const col = hot ? '#2fcf4c' : '#1c9a2e', r = 6, cy = 3;
+  const at = (rad, a) => [Math.cos(a) * rad, cy + Math.sin(a) * rad];
+  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 3; c.lineCap = 'butt';
+  for (const [a0, a1] of [[-2.75, -0.55], [0.4, 2.6]]) {
+    c.beginPath(); c.arc(0, cy, r, a0, a1); c.stroke();
+    c.beginPath(); c.moveTo(...at(r, a1 + 0.62)); c.lineTo(...at(r + 3.4, a1)); c.lineTo(...at(r - 3.4, a1)); c.closePath(); c.fill();
+  }
   c.restore();
 }
 function drawFlag(c, x, y, s) {
@@ -585,13 +600,17 @@ function drawToolbar(c) {
   drawXBox(c);
 }
 function drawXBox(c) {
-  const armed = clearArm > clock;
-  c.fillStyle = armed ? '#ff4a3a' : '#ffd81f'; c.strokeStyle = '#3a0414'; c.lineWidth = 1.6;
-  c.fillRect(XBOX.x, XBOX.y, XBOX.w, XBOX.h); c.strokeRect(XBOX.x + 0.8, XBOX.y + 0.8, XBOX.w - 1.6, XBOX.h - 1.6);
-  c.beginPath(); c.moveTo(XBOX.x + 4, XBOX.y + 4); c.lineTo(XBOX.x + 16, XBOX.y + 16); c.moveTo(XBOX.x + 16, XBOX.y + 4); c.lineTo(XBOX.x + 4, XBOX.y + 16); c.stroke();
+  // yellow outlined square with a thin yellow cross, straight on the crimson band
+  const armed = clearArm > clock, {x, y, w, h} = XBOX;
+  if (armed) { c.fillStyle = '#ff4a3a'; c.fillRect(x, y, w, h); }
+  c.strokeStyle = '#ffd81f'; c.lineWidth = 1.6; c.lineCap = 'square';
+  c.strokeRect(x + 0.8, y + 0.8, w - 1.6, h - 1.6);
+  c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(x + 4.5, y + 4.5); c.lineTo(x + w - 4.5, y + h - 4.5); c.moveTo(x + w - 4.5, y + 4.5); c.lineTo(x + 4.5, y + h - 4.5); c.stroke();
+  c.lineCap = 'butt';
   if (armed) {
     c.font = 'bold italic 11px Verdana, sans-serif'; c.textAlign = 'right'; c.fillStyle = '#3a0414';
-    c.fillText('Click again to clear', XBOX.x - 6, XBOX.y + 14);
+    c.fillText('Click again to clear', x - 6, y + 14);
   }
 }
 
