@@ -386,9 +386,9 @@ function drawCtrl(c, x, y, s, i, letter, pressed) {
   c.restore();
 }
 function drawBird(c, x, y, s, press, holding) {
-  // The cockatoo: chubby, sulphur crest fanned out, smug half-lidded eye and a cheeky grin,
+  // The cockatoo: a flat, chubby cartoon with a lemon crest and a smug half-lidded eye,
   // leaning one wing on the plunger like winning is no effort at all.
-  const INK = '#9a8fb5', SHADE = '#ece8f5', W = '#ffffff';
+  const INK = '#9a8fb5', W = '#ffffff';
   c.save(); c.translate(x, y); c.scale(s, s);
   c.lineJoin = 'round'; c.lineCap = 'round';
 
@@ -396,96 +396,61 @@ function drawBird(c, x, y, s, press, holding) {
   c.fillStyle = 'rgba(40,0,20,.22)';
   c.beginPath(); c.ellipse(4, 58.5, 40, 3.2, 0, 0, 7); c.fill();
 
-  // crest (behind the head): golden at the root, lemon at the tips, curling forward
-  const CREST = [[-2.35, 22], [-2.05, 27], [-1.75, 29], [-1.45, 28], [-1.15, 25], [-0.85, 20]];
-  CREST.forEach(([a, len], k) => {
+  // crest (behind the head)
+  c.fillStyle = '#ffc61a'; c.strokeStyle = '#d98e00'; c.lineWidth = 1.1;
+  [[-2.35, 22], [-2.05, 27], [-1.75, 29], [-1.45, 28], [-1.15, 25], [-0.85, 20]].forEach(([a, len], k) => {
     const bx = -6 + k * 3.2, by = -45 + Math.abs(k - 2.5) * 1.2;
     const ta = a - 0.28, tx = bx + Math.cos(ta) * len, ty = by + Math.sin(ta) * len;
     const px = -Math.sin(a), py = Math.cos(a), w = 4.6;
     const mx = bx + Math.cos(a) * len * 0.55, my = by + Math.sin(a) * len * 0.55;
-    const g = c.createLinearGradient(bx, by, tx, ty);
-    g.addColorStop(0, '#ffad14'); g.addColorStop(0.55, '#ffd23a'); g.addColorStop(1, '#fff1a1');
-    c.fillStyle = g; c.strokeStyle = '#d98e00'; c.lineWidth = 1.1;
     c.beginPath(); c.moveTo(bx + px * w * 0.6, by + py * w * 0.6);
     c.quadraticCurveTo(mx + px * w * 1.3, my + py * w * 1.3, tx, ty);
     c.quadraticCurveTo(mx - px * w * 0.7, my - py * w * 0.7, bx - px * w * 0.6, by - py * w * 0.6);
     c.closePath(); c.fill(); c.stroke();
   });
 
-  // legs and feet
+  // legs
   c.strokeStyle = '#8b8f9e'; c.lineWidth = 3.6;
-  c.beginPath(); c.moveTo(6, 38); c.lineTo(5, 54); c.moveTo(17, 37); c.lineTo(19, 54); c.stroke();
+  c.beginPath(); c.moveTo(6, 38); c.lineTo(5, 55); c.moveTo(17, 37); c.lineTo(19, 55); c.stroke();
   c.lineWidth = 2.6;
   c.beginPath();
-  for (const fx of [5, 19]) { c.moveTo(fx, 55); c.lineTo(fx - 7, 57.5); c.moveTo(fx, 55); c.lineTo(fx - 4, 58.5); c.moveTo(fx, 55); c.lineTo(fx + 5, 58); }
+  for (const fx of [5, 19]) { c.moveTo(fx - 6, 57.5); c.lineTo(fx + 5, 57.5); }
   c.stroke();
 
-  // silhouette: tail feathers, pear body, big round head
-  const tail = [
-    p => { p.moveTo(14, 22); p.quadraticCurveTo(38, 28, 56, 46); p.quadraticCurveTo(49, 53, 40, 49); p.quadraticCurveTo(24, 40, 10, 32); },
-    p => { p.moveTo(10, 27); p.quadraticCurveTo(30, 40, 45, 57); p.quadraticCurveTo(36, 60, 29, 55); p.quadraticCurveTo(16, 45, 6, 34); }
+  // silhouette: tail, pear body, big round head, outlined once and filled flat
+  const parts = [
+    p => { p.moveTo(14, 22); p.quadraticCurveTo(38, 28, 56, 46); p.quadraticCurveTo(47, 56, 36, 54); p.quadraticCurveTo(20, 44, 6, 34); },
+    p => { p.moveTo(-10, -16); p.bezierCurveTo(-25, -8, -27, 16, -14, 32); p.bezierCurveTo(-4, 44, 18, 44, 26, 30);
+           p.bezierCurveTo(34, 16, 30, -6, 16, -16); p.bezierCurveTo(8, -22, -2, -21, -10, -16); },
+    p => { p.moveTo(19, -30); p.arc(-2, -30, 21, 0, Math.PI * 2); }
   ];
-  const body = p => { p.moveTo(-10, -16); p.bezierCurveTo(-25, -8, -27, 16, -14, 32); p.bezierCurveTo(-4, 44, 18, 44, 26, 30);
-                      p.bezierCurveTo(34, 16, 30, -6, 16, -16); p.bezierCurveTo(8, -22, -2, -21, -10, -16); };
-  const head = p => { p.moveTo(19, -30); p.arc(-2, -30, 21, 0, Math.PI * 2); };
   const path = fn => { c.beginPath(); fn(c); c.closePath(); };
   c.strokeStyle = INK; c.lineWidth = 3;
-  for (const fn of [...tail, body, head]) { path(fn); c.stroke(); }
-  for (const fn of tail) {
-    path(fn); c.fillStyle = W; c.fill();
-    c.save(); c.clip(); c.fillStyle = '#fff4c7'; c.beginPath(); c.ellipse(40, 50, 14, 6, 0.7, 0, 7); c.fill(); c.restore();
-    path(fn); c.lineWidth = 1.2; c.stroke();
-  }
+  for (const fn of parts) { path(fn); c.stroke(); }
   c.fillStyle = W;
-  path(body); c.fill();
-  c.save(); path(body); c.clip();
-  c.fillStyle = SHADE; c.beginPath(); c.ellipse(20, 32, 26, 17, -0.55, 0, 7); c.fill();
-  c.restore();
-  path(head); c.fill();
-  c.save(); path(head); c.clip();
-  c.fillStyle = SHADE; c.beginPath(); c.ellipse(16, -14, 14, 11, -0.6, 0, 7); c.fill();
-  c.restore();
-  // chest fluff
-  c.strokeStyle = 'rgba(154,143,181,.45)'; c.lineWidth = 1.1;
-  for (const [fx, fy] of [[-18, 4], [-15, 13], [-19, 20], [-11, 22]]) { c.beginPath(); c.arc(fx, fy, 3.2, 0.2, 2.2); c.stroke(); }
+  for (const fn of parts) { path(fn); c.fill(); }
 
   // rosy cheek
-  c.fillStyle = 'rgba(255,128,150,.42)';
+  c.fillStyle = 'rgba(255,128,150,.4)';
   c.beginPath(); c.ellipse(1, -21, 6.5, 4, -0.15, 0, 7); c.fill();
 
   // smug, half-lidded eye
   c.save();
-  c.beginPath(); c.ellipse(-6, -33, 7.6, 7.2, 0, 0, 7);
-  c.fillStyle = '#dcebf8'; c.fill(); c.clip();
-  c.fillStyle = '#1d1824'; c.beginPath(); c.ellipse(-4.2, -31.4, 4.4, 4.8, 0, 0, 7); c.fill();
-  c.fillStyle = '#fff'; c.beginPath(); c.arc(-5.6, -32.2, 1.5, 0, 7); c.fill();
-  c.beginPath(); c.arc(-2.4, -29.4, 0.8, 0, 7); c.fill();
-  c.fillStyle = W;                                   // the lid
-  c.beginPath(); c.moveTo(-15, -41); c.lineTo(3, -41); c.lineTo(3, -34.6);
-  c.quadraticCurveTo(-5, -35.4, -15, -35); c.closePath(); c.fill();
+  c.beginPath(); c.ellipse(-6, -33, 7, 6.8, 0, 0, 7); c.clip();
+  c.fillStyle = '#1d1824'; c.beginPath(); c.arc(-4.4, -31.6, 4.4, 0, 7); c.fill();
+  c.fillStyle = W; c.beginPath(); c.arc(-5.6, -32.6, 1.4, 0, 7); c.fill();
+  c.fillRect(-14, -41, 18, 6.2);                        // the lid
   c.restore();
-  c.strokeStyle = '#5c5273'; c.lineWidth = 1.6;
-  c.beginPath(); c.moveTo(-13.2, -35); c.quadraticCurveTo(-5, -35.4, 1, -34.7); c.stroke();
-  c.strokeStyle = INK; c.lineWidth = 1.7;                // cocked brow
-  c.beginPath(); c.moveTo(-13, -43); c.quadraticCurveTo(-7, -48.5, 0, -45); c.stroke();
-  c.strokeStyle = INK; c.lineWidth = 1;
-  c.beginPath(); c.ellipse(-6, -33, 7.6, 7.2, 0, 0.1, Math.PI * 2 - 0.1); c.stroke();
+  c.strokeStyle = '#5c5273'; c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(-12.8, -34.8); c.lineTo(0.8, -34.8); c.stroke();
 
-  // beak: open in a grin, pink tongue, smile line into the cheek
+  // beak: grey hook, grinning open
   c.fillStyle = '#3b2430';
   c.beginPath(); c.moveTo(-16, -26.5); c.lineTo(-29, -24); c.lineTo(-26, -19); c.lineTo(-15, -20); c.closePath(); c.fill();
-  c.fillStyle = '#ff7f98'; c.beginPath(); c.ellipse(-22.5, -21.6, 3.4, 1.9, -0.15, 0, 7); c.fill();
-  c.fillStyle = '#5d6271';
+  c.fillStyle = '#4a4f5d';
   c.beginPath(); c.moveTo(-15, -20.5); c.quadraticCurveTo(-24, -21, -26.5, -18.5); c.quadraticCurveTo(-21, -14, -14, -17); c.closePath(); c.fill();
-  const bg = c.createLinearGradient(-30, -40, -18, -20);
-  bg.addColorStop(0, '#585e6e'); bg.addColorStop(1, '#353946');
-  c.fillStyle = bg;
   c.beginPath(); c.moveTo(-14, -39); c.bezierCurveTo(-27, -43, -39, -32, -35, -18);
   c.quadraticCurveTo(-32, -21, -29, -23.5); c.quadraticCurveTo(-23, -26.5, -15, -26.5); c.closePath(); c.fill();
-  c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.6;
-  c.beginPath(); c.moveTo(-18, -38.5); c.quadraticCurveTo(-28, -38, -32, -30); c.stroke();
-  c.strokeStyle = INK; c.lineWidth = 1.3;
-  c.beginPath(); c.moveTo(-14.5, -21.5); c.quadraticCurveTo(-11, -21.5, -8.5, -25); c.stroke();
 
   if (holding) {
     drawCtrl(c, -30, 1, 0.58, 0, '', false);
@@ -496,15 +461,6 @@ function drawBird(c, x, y, s, press, holding) {
     c.strokeStyle = INK; c.lineWidth = 2.2;                // outline the front only; the back melts into the body
     c.beginPath(); c.moveTo(6, -10.5); c.bezierCurveTo(-2, -14, -20, -13, -33, -8); c.bezierCurveTo(-42, -5, -42, 1, -34, 0.5);
     c.bezierCurveTo(-20, 0, -4, 8, 5, 10.5); c.stroke();
-    c.save(); path(wing); c.clip();
-    const ws = c.createLinearGradient(-34, 0, 12, 0);
-    ws.addColorStop(0, SHADE); ws.addColorStop(0.65, SHADE); ws.addColorStop(1, 'rgba(236,232,245,0)');
-    c.fillStyle = ws; c.beginPath(); c.ellipse(-12, 8, 28, 6.5, -0.3, 0, 7); c.fill();
-    c.restore();
-    c.strokeStyle = INK; c.lineWidth = 1.1;
-    for (const [ax, ay, bx2, by2] of [[-30, 0.6, -24, -6], [-23, 1.6, -16, -5], [-16, 3.5, -9, -3]]) {
-      c.beginPath(); c.moveTo(ax, ay); c.quadraticCurveTo((ax + bx2) / 2 + 1.5, (ay + by2) / 2 + 1, bx2, by2); c.stroke();
-    }
   }
   c.restore();
 }
@@ -583,7 +539,7 @@ const TOOLS = [['SE',36,29,1],['SW',82,29,1],['NE',128,29,1],['NW',174,29,1],['X
 const FLAG_FALLBACK = {x: 44, y: 80};   // board full: flag sits over the top-left cell
 const TRASH = {x: 363, y: 4, w: 38, h: 46};
 const BIRD_TB = {x: 492, y: 2, w: 48, h: 50};
-const XBOX = {x: 552, y: 16, w: 20, h: 20};
+const XBOX = {x: 552, y: 21, w: 18, h: 18};
 const NIV_UP = {x: 588, y: 44, w: 28, h: 15}, NIV_DN = {x: 588, y: 59, w: 28, h: 15};
 const BIRD_PANEL = {x: 492, y: 80, w: 110, h: 100};
 const inR = (r, x, y) => r && x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
@@ -605,10 +561,9 @@ function drawXBox(c) {
   // yellow outlined square with a thin yellow cross, straight on the crimson band
   const armed = clearArm > clock, {x, y, w, h} = XBOX;
   if (armed) { c.fillStyle = '#ff4a3a'; c.fillRect(x, y, w, h); }
-  c.strokeStyle = '#ffd81f'; c.lineWidth = 1.6; c.lineCap = 'square';
-  c.strokeRect(x + 0.8, y + 0.8, w - 1.6, h - 1.6);
-  c.lineWidth = 1.5;
-  c.beginPath(); c.moveTo(x + 4.5, y + 4.5); c.lineTo(x + w - 4.5, y + h - 4.5); c.moveTo(x + w - 4.5, y + 4.5); c.lineTo(x + 4.5, y + h - 4.5); c.stroke();
+  c.strokeStyle = '#ffd81f'; c.lineWidth = 2; c.lineCap = 'square';
+  c.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  c.beginPath(); c.moveTo(x + 5, y + 5); c.lineTo(x + w - 5, y + h - 5); c.moveTo(x + w - 5, y + 5); c.lineTo(x + 5, y + h - 5); c.stroke();
   c.lineCap = 'butt';
   if (armed) {
     c.font = 'bold italic 11px Verdana, sans-serif'; c.textAlign = 'right'; c.fillStyle = '#3a0414';
