@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Not Bilbanan</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
@@ -16,12 +16,13 @@
   --font:Verdana,Geneva,Tahoma,sans-serif;
   color-scheme:light;
 }
-html,body{height:100%}
+html,body{height:100%;height:100dvh;overscroll-behavior:none}
 body{
   margin:0;background:var(--table);color:var(--ink);font:13px/1.45 var(--font);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   padding-block:12px;box-sizing:border-box;overflow:hidden;
+  -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation;
 }
 canvas{display:block;touch-action:none;border-radius:6px;background:var(--board);
   box-shadow:0 12px 40px rgba(0,0,0,.45);user-select:none;-webkit-user-select:none;cursor:default}
@@ -32,6 +33,7 @@ h1{margin:0;font:bold italic 22px/1.2 var(--font);color:var(--board);letter-spac
 .keys{color:var(--ink-dim)}
 kbd{display:inline-block;min-width:1.4em;padding:0 .35em;border-radius:4px;background:var(--board);color:var(--key);
   font:bold 12px/1.5 var(--font);box-shadow:0 2px 0 #b88f00}
+@media (pointer:coarse){.keys{display:none} h1{font-size:18px} body{gap:6px;padding-block:8px}}
 button{font:bold 12px var(--font);color:var(--key);background:var(--ink);border:0;border-radius:4px;padding:4px 10px;cursor:pointer}
 button:focus-visible{outline:2px solid var(--board);outline-offset:2px}
 </style>
@@ -53,7 +55,9 @@ const hintEl = document.getElementById('hint');
 const sndBtn = document.getElementById('snd');
 
 /* ---------- constants ---------- */
-const W = 620, H = 446, CELL = 80, HALF = 40, COLS = 6, ROWS = 5, GX = 0, GY = 35, LANE = 8;
+const W = 620, CELL = 80, HALF = 40, COLS = 6, ROWS = 5, GY = 35, LANE = 8, PB = 300;
+let H = 446, GX = 0, portrait = false;
+const TOUCH = matchMedia('(pointer:coarse)').matches, CLICK = TOUCH ? 'Tap' : 'Click';   // portrait: board centred, controllers in a band of height PB underneath
 const VMAX = 560, TAU_A = 0.75, TAU_B = 0.45, BRK_C = 60, ALAT = 1700, LAPS = 5;
 const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];             // N E S W
 const opp = e => (e + 2) % 4;
@@ -164,7 +168,7 @@ function analyse() {
   const total = grid.flat().filter(Boolean).length;
   if (state === 'build') {
     hintEl.textContent = segs
-      ? 'The track is closed. Click the checkered flag (or press Enter) to race!'
+      ? 'The track is closed. ' + CLICK + ' the checkered flag' + (TOUCH ? '' : ' (or press Enter)') + ' to race!'
       : total <= 1 ? 'Drag track pieces from the top bar onto the board.'
       : 'Join every loose end (red dots) into one loop that runs through the start.';
   }
@@ -540,11 +544,19 @@ const FLAG_FALLBACK = {x: 44, y: 80};   // board full: flag sits over the top-le
 const TRASH = {x: 363, y: 4, w: 38, h: 46};
 const BIRD_TB = {x: 492, y: 2, w: 48, h: 50};
 const XBOX = {x: 552, y: 21, w: 18, h: 18};
-const NIV_UP = {x: 588, y: 44, w: 28, h: 15}, NIV_DN = {x: 588, y: 59, w: 28, h: 15};
-const BIRD_PANEL = {x: 492, y: 80, w: 110, h: 100};
+let NIV, NIV_UP, NIV_DN, BIRD_PANEL;
+function layout(p) {
+  portrait = p; H = p ? 446 + PB : 446; GX = p ? 70 : 0;
+  NIV = p ? {x: 350, y: 474, k: 1.8} : {x: 596, y: 48, k: 1};
+  const {x, y, k} = NIV;
+  NIV_UP = {x: x - 8 * k, y: y - 4 * k, w: 28 * k, h: 15 * k}; NIV_DN = {x: x - 8 * k, y: y + 11 * k, w: 28 * k, h: 15 * k};
+  BIRD_PANEL = p ? {x: 40, y: 516, w: 200, h: 220} : {x: 492, y: 80, w: 110, h: 100};
+}
+layout(false);
 const inR = (r, x, y) => r && x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
 function ctrlRect(i) {
   if (i === 0 && birdMode) return null;
+  if (portrait) return {x: i === 0 ? 14 : 376, y: 446, w: 230, h: PB};   // big thumb zones
   return i === 0 ? {x: 506, y: 64, w: 72, h: 106} : {x: 506, y: 258, w: 72, h: 106};
 }
 function drawToolbar(c) {
@@ -567,7 +579,7 @@ function drawXBox(c) {
   c.lineCap = 'butt';
   if (armed) {
     c.font = 'bold italic 11px Verdana, sans-serif'; c.textAlign = 'right'; c.fillStyle = '#3a0414';
-    c.fillText('Click again to clear', x - 6, y + 14);
+    c.fillText(CLICK + ' again to clear', x - 6, y + 14);
   }
 }
 
@@ -587,12 +599,7 @@ function drawPanel(c) {
     c.bezierCurveTo(490, 436, sx + 110, 440, sx + 18, sy + 18); c.stroke();
   }
   if (birdMode) {
-    c.font = 'bold italic 13px Verdana, sans-serif'; c.textAlign = 'right'; c.fillStyle = '#ffd81f';
-    c.fillText('Nivå: ' + level, 586, 64);
-    const canSet = state === 'build' || state === 'done';
-    c.fillStyle = canSet ? '#ffd81f' : 'rgba(255,216,31,.35)';
-    c.beginPath(); c.moveTo(596, 56); c.lineTo(608, 56); c.lineTo(602, 48); c.fill();
-    c.beginPath(); c.moveTo(596, 62); c.lineTo(608, 62); c.lineTo(602, 70); c.fill();
+    drawNiv(c);
     drawBird(c, 554, 132, 0.86, false, true);
   } else {
     drawCtrl(c, 542, 64, 1, 0, 'D', pressed(0));
@@ -600,6 +607,31 @@ function drawPanel(c) {
   drawLCD(c, 494, 190, timeOf(0), 0);
   drawLCD(c, 498, 228, timeOf(1), 1);
   drawCtrl(c, 542, 260, 1, 1, 'K', pressed(1));
+}
+function drawNiv(c) {
+  c.save(); c.translate(NIV.x, NIV.y); c.scale(NIV.k, NIV.k);
+  c.font = 'bold italic 13px Verdana, sans-serif'; c.textAlign = 'right'; c.fillStyle = '#ffd81f';
+  c.fillText('Nivå: ' + level, -10, 16);
+  c.fillStyle = state === 'build' || state === 'done' ? '#ffd81f' : 'rgba(255,216,31,.35)';
+  c.beginPath(); c.moveTo(0, 8); c.lineTo(12, 8); c.lineTo(6, 0); c.fill();
+  c.beginPath(); c.moveTo(0, 14); c.lineTo(12, 14); c.lineTo(6, 22); c.fill();
+  c.restore();
+}
+function drawPanelBottom(c) {
+  // portrait: red (or the cockatoo) bottom-left, timers in the middle, orange bottom-right
+  const y0 = 446;
+  c.fillStyle = '#8f0b3c';
+  c.beginPath(); c.moveTo(14, y0 + 6); c.lineTo(606, y0); c.lineTo(600, y0 + PB - 8); c.lineTo(20, y0 + PB - 2); c.closePath(); c.fill();
+  c.strokeStyle = '#1c1c1c'; c.lineWidth = 2; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(492, y0 + 262); c.bezierCurveTo(486, y0 + 292, 380, y0 + 280, 358, y0 + 190); c.stroke();
+  if (birdMode) { drawNiv(c); drawBird(c, 150, y0 + 196, 1.35, false, true); }
+  else {
+    c.beginPath(); c.moveTo(126, y0 + 262); c.bezierCurveTo(134, y0 + 292, 240, y0 + 280, 262, y0 + 150); c.stroke();
+    drawCtrl(c, 130, y0 + 40, 2.2, 0, 'D', pressed(0));
+  }
+  drawLCD(c, 266, y0 + 120, timeOf(0), 0);
+  drawLCD(c, 266, y0 + 162, timeOf(1), 1);
+  drawCtrl(c, 490, y0 + 40, 2.2, 1, 'K', pressed(1));
 }
 function timeOf(i) {
   const car = cars[i]; if (!car) return 0;
@@ -645,7 +677,7 @@ function finishRace(i) {
   winner = i; state = 'done'; endT = raceT; doneT = clock;
   const humanWon = !(birdMode && i === 0);
   if (birdMode && i === 0) sfx.squawk(); else sfx.fanfare();
-  hintEl.textContent = (birdMode ? (humanWon ? 'You beat the cockatoo!' : 'The cockatoo wins this time.') : CARS[i].name + ' wins!') + ' Click the board to go back to building.';
+  hintEl.textContent = (birdMode ? (humanWon ? 'You beat the cockatoo!' : 'The cockatoo wins this time.') : CARS[i].name + ' wins!') + ' ' + CLICK + ' the board to go back to building.';
 }
 function lapDone(car) {
   const lt = raceT - car.lapStart; car.lapStart = raceT;
@@ -800,7 +832,7 @@ function drawOverlay(c) {
   if (state !== 'done') return;
   const a = Math.min(1, (clock - doneT) * 3);
   c.save(); c.globalAlpha = a;
-  const bx = 70, by = 120, bw = 330, bh = 170;
+  const bx = portrait ? 145 : 70, by = 120, bw = 330, bh = 170;
   c.fillStyle = 'rgba(40,6,20,.92)'; rr(c, bx, by, bw, bh, 10); c.fill();
   c.strokeStyle = '#ffd81f'; c.lineWidth = 2; c.stroke();
   c.textAlign = 'center'; c.fillStyle = '#ffd81f'; c.font = 'bold italic 24px Verdana, sans-serif';
@@ -818,8 +850,8 @@ function drawOverlay(c) {
     c.fillStyle = '#e7b9c6'; c.fillText(car.best != null ? 'best lap ' + car.best.toFixed(2) : 'no full lap', bx + 236, y);
   });
   c.textAlign = 'center'; c.fillStyle = '#e7b9c6'; c.font = 'italic 11px Verdana, sans-serif';
-  if (birdMode) c.fillText('Nivå ' + level + ' · click to go back to building', bx + bw / 2, by + bh - 16);
-  else c.fillText('Click to go back to building', bx + bw / 2, by + bh - 16);
+  if (birdMode) c.fillText('Nivå ' + level + ' · ' + CLICK.toLowerCase() + ' to go back to building', bx + bw / 2, by + bh - 16);
+  else c.fillText(CLICK + ' to go back to building', bx + bw / 2, by + bh - 16);
   c.restore();
 }
 function draw() {
@@ -833,12 +865,15 @@ function draw() {
   drawCars(ctx);
   if (state === 'build') {
     if (segs) {
-      if (spot) drawFlag(ctx, spot.x + spot.w / 2 + 4, spot.y + spot.h / 2 - 2, Math.min(1.2, spot.h / 70));
+      if (spot) {
+        const fs = Math.min(1.2, spot.h / 70);
+        drawFlag(ctx, spot.x + spot.w / 2 + 4, Math.max(spot.y + spot.h / 2 - 2, 58 + 30 * fs), fs);   // keep it clear of the toolbar
+      }
       else drawFlag(ctx, FLAG_FALLBACK.x, FLAG_FALLBACK.y, 0.8);
     }
   }
   if (state === 'build') drawToolbar(ctx); else drawXBox(ctx);
-  drawPanel(ctx);
+  if (portrait) drawPanelBottom(ctx); else drawPanel(ctx);
   if (drag && drag.moved) {
     const gx = drag.x - drag.ox, gy = drag.y - drag.oy;
     const tc = cellAt(gx, gy);
@@ -935,6 +970,9 @@ function endPointer(e) {
 cv.addEventListener('pointerup', endPointer);
 cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('touchstart', e => e.preventDefault(), {passive: false});   // no double-tap zoom, magnifier or callout
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
 function changed() { trackDirty = true; analyse(); resetCars(); save(); }
 
 window.addEventListener('keydown', e => {
@@ -954,6 +992,8 @@ window.addEventListener('blur', () => { keyDown[0] = keyDown[1] = false; ptrPres
 
 /* ---------- sizing & loop ---------- */
 function resize() {
+  const p = window.innerHeight > window.innerWidth;
+  if (p !== portrait) { layout(p); analyse(); }
   const bar = document.getElementById('bar');
   const cs = getComputedStyle(document.body);
   const availW = document.body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
