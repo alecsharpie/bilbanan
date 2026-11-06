@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not Bilbanan dev</title>
+<style>
+  /* The TV and 1-4 phones in one tab over BroadcastChannel (?net=local): no relay, no real phones. Same idea as
+     Finger Frolic's dev.html. Hold a phone's button with the mouse. */
+  :root { --table:#5a0625; --ink:#ffe98a; --ink-dim:#e7b9c6; color-scheme: light; }
+  body { margin: 0; background: #2a0211; color: var(--ink-dim); font: 14px Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; padding: 10px; gap: 10px; box-sizing: border-box; overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .bar b { color: var(--ink); font-size: 17px; font-style: italic; }
+  .bar a { color: var(--ink-dim); margin-left: auto; }
+  .main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .tv { min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+  .tv .screen { position: relative; border: 6px solid #120008; border-radius: 12px; overflow: hidden; }
+  .tv iframe { position: absolute; top: 0; left: 0; width: 1280px; height: 800px; border: 0; transform-origin: 0 0; }
+  .phones { display: grid; gap: 10px; align-content: start; }
+  .phone .shell { position: relative; border: 5px solid #120008; border-radius: 22px; overflow: hidden; }
+  .phone iframe { position: absolute; top: 0; left: 0; width: 390px; height: 780px; border: 0; transform-origin: 0 0; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <b>Not Bilbanan · dev</b>
+  <label>Phones <select id="n"></select></label>
+  <span>Hold a phone's button with the mouse. The TV's keys (D K Z M) work too once you click it.</span>
+  <a href="index.html">Open the TV page</a>
+</div>
+<div class="main">
+  <div class="tv"><div class="screen" id="tv"></div></div>
+  <div class="phones" id="phones"></div>
+</div>
+<script>
+const q = new URLSearchParams(location.search);
+const N = Math.max(1, Math.min(4, +q.get('players') || 3));
+const room = 'DEVXX';   // a valid code; hostRoom() never remembers it, so the real TV keeps its own
+const NAMES = ['Ada', 'Bo', 'Cy', 'Di'];
+const $ = id => document.getElementById(id);
+for (let i = 1; i <= 4; i++) $('n').add(new Option(i, i, i === N, i === N));
+$('n').onchange = () => { q.set('players', $('n').value); location.search = q; };
+
+const tv = document.createElement('iframe');
+tv.src = `index.html?net=local&room=${room}`;
+$('tv').appendChild(tv);
+const phones = [];
+for (let i = 0; i < N; i++) {
+  const wrap = document.createElement('div'); wrap.className = 'phone';
+  wrap.innerHTML = `<div class="shell"><iframe src="pad.html?net=local&room=${room}&cid=dev-${i}&name=${NAMES[i]}&auto"></iframe></div>`;
+  $('phones').appendChild(wrap);
+  phones.push({ f: wrap.querySelector('iframe'), shell: wrap.querySelector('.shell') });
+}
+function fit() {
+  const main = document.querySelector('.main'), H = main.clientHeight, W = main.clientWidth;
+  let best = null;
+  for (let cols = 1; cols <= N; cols++) {
+    const rows = Math.ceil(N / cols);
+    const ph = Math.min((H - (rows - 1) * 10) / rows, 780 * 0.75, ((W * 0.4 - (cols - 1) * 10) / cols - 10) * 2);
+    if (!best || ph > best.ph) best = { cols, ph };
+  }
+  const { cols, ph } = best, ps = ph / 780;
+  $('phones').style.gridTemplateColumns = `repeat(${cols}, auto)`;
+  for (const p of phones) { p.shell.style.width = 390 * ps + 'px'; p.shell.style.height = ph + 'px'; p.f.style.transform = `scale(${ps})`; }
+  const box = document.querySelector('.tv'), tw = Math.min(box.clientWidth - 12, (box.clientHeight - 12) * 1.6);
+  $('tv').style.width = tw + 'px'; $('tv').style.height = tw / 1.6 + 'px';
+  tv.style.transform = `scale(${tw / 1280})`;
+}
+addEventListener('resize', fit); fit(); requestAnimationFrame(fit);
+</script>
+</body>
+</html>

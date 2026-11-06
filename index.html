@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Not Bilbanan</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
 /* Layout: one yellow toy-board canvas centred on a maroon tabletop, a single help strip beneath. */
 :root{
@@ -35,19 +36,52 @@ kbd{display:inline-block;min-width:1.4em;padding:0 .35em;border-radius:4px;backg
   font:bold 12px/1.5 var(--font);box-shadow:0 2px 0 #b88f00}
 @media (pointer:coarse){.keys{display:none} h1{font-size:18px} body{gap:6px;padding-block:8px}}
 button{font:bold 12px var(--font);color:var(--key);background:var(--ink);border:0;border-radius:4px;padding:4px 10px;cursor:pointer}
+.phones{display:flex;align-items:center;gap:14px;background:#8f0b3c;border-radius:8px;padding:10px 14px;max-width:600px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.phones[hidden]{display:none}
+.phones .qr{background:#fff;padding:5px;width:104px;height:104px;flex:none;border-radius:4px}
+.phones .qr svg{display:block;width:100%;height:100%}
+.ptxt{display:flex;flex-direction:column;gap:3px;text-align:left;color:var(--ink-dim);font-size:12px}
+.ptxt>b{font:bold italic 16px var(--font);color:var(--board)}
+.ptxt u{color:var(--ink);text-decoration:none}
+.ptxt .code{color:var(--board);letter-spacing:.15em;font-size:15px}
+.ptxt ul{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px 12px}
+.ptxt li{font-weight:bold;color:var(--ink)}
+.ptxt li::before{content:'';display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:5px;vertical-align:-1px}
+.ptxt li.away{opacity:.5}.ptxt li.none{font-weight:normal;font-style:italic;color:var(--ink-dim)}
+.ptxt em{color:#ffb3c6}
+.pmini{display:none;font:bold 13px var(--font);color:var(--ink)}
+.pmini b{color:var(--board);letter-spacing:.12em}
+.phones.mini{padding:6px 12px}.phones.mini .qr,.phones.mini .ptxt{display:none}.phones.mini .pmini{display:inline}
 button:focus-visible{outline:2px solid var(--board);outline-offset:2px}
 </style>
 </head>
 <body>
 <h1 id="ttl">Not Bilbanan</h1>
 <canvas id="game" aria-label="Not Bilbanan slot car track. Build a loop, then race."></canvas>
+<aside class="phones" id="phones" hidden title="Click to shrink or grow">
+  <div class="qr" id="pqr"></div>
+  <div class="ptxt">
+    <b>Drive with your phone</b>
+    <span>Scan the code, or open <u id="purl"></u> and type <b class="code" id="pcode"></b></span>
+    <ul id="plist"></ul>
+    <em id="pstatus"></em>
+  </div>
+  <span class="pmini">Phones: <b id="pcode2"></b></span>
+</aside>
 <div class="bar" id="bar">
   <p class="hint" id="hint">Drag track pieces onto the board.</p>
-  <p class="keys">2 players: hold <kbd>D</kbd> red · <kbd>K</kbd> orange — or tap the on&#8209;screen controllers</p>
+  <p class="keys">Up to 4 players: hold <kbd>D</kbd> red · <kbd>K</kbd> orange · <kbd>Z</kbd> blue · <kbd>M</kbd> green — or hold the on&#8209;screen controllers</p>
   <button id="snd" type="button">Sound on</button>
 </div>
 
 <script>
+const CARS = [
+  {body:'#e3161b', dark:'#7d0a0c', light:'#ff5a4a', name:'Red'},
+  {body:'#ff9a12', dark:'#9a5200', light:'#ffc25a', name:'Orange'},
+  {body:'#1f6fe0', dark:'#0b2f6e', light:'#7ab0ff', name:'Blue'},
+  {body:'#22b04a', dark:'#0b5a20', light:'#86e69a', name:'Green'}
+];
+
 (() => {
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -55,9 +89,10 @@ const hintEl = document.getElementById('hint');
 const sndBtn = document.getElementById('snd');
 
 /* ---------- constants ---------- */
-const W = 620, CELL = 80, HALF = 40, COLS = 6, ROWS = 5, GY = 35, LANE = 8, PB = 300;
-let H = 446, GX = 0, portrait = false;
-const TOUCH = matchMedia('(pointer:coarse)').matches, CLICK = TOUCH ? 'Tap' : 'Click';   // portrait: board centred, controllers in a band of height PB underneath
+const W = 620, CELL = 80, HALF = 40, COLS = 6, ROWS = 5, GY = 35, LANE = 8, BH = 446, PB = 300;
+let CH = BH, OY = 0, GX = 0, portrait = false;   // portrait: board on top, controllers in a band of height PB underneath
+const TOUCH = matchMedia('(pointer:coarse)').matches, CLICK = TOUCH ? 'Tap' : 'Click';
+const KEYS = ['d', 'k', 'z', 'm'], LOCK = 1.6;      // hold-to-join: race starts once nobody joins or leaves for LOCK s
 const VMAX = 560, TAU_A = 0.75, TAU_B = 0.45, BRK_C = 60, ALAT = 1700, LAPS = 5;
 const DIRS = [[0,-1],[1,0],[0,1],[-1,0]];             // N E S W
 const opp = e => (e + 2) % 4;
@@ -66,10 +101,6 @@ const PIECES = {
   NE:{p:[[0,1]]}, NW:{p:[[0,3]]}, SE:{p:[[2,1]]}, SW:{p:[[2,3]]}, ST:{p:[[3,1]],start:1}
 };
 const ROT = {NE:'SE',SE:'SW',SW:'NW',NW:'NE',H:'V',V:'H',XH:'XV',XV:'XH',P:'P'};
-const CARS = [
-  {body:'#e3161b', dark:'#7d0a0c', light:'#ff5a4a', name:'Red'},
-  {body:'#ff9a12', dark:'#9a5200', light:'#ffc25a', name:'Orange'}
-];
 const DEFAULT = [
   [null,null,'SE','H','H','SW'],
   [null,'SE','P','H','H','NW'],
@@ -82,13 +113,14 @@ const DEFAULT = [
 let grid = DEFAULT.map(r => r.slice());
 let birdMode = true, level = 3;
 let segs = null, loose = [], spot = null;
-let state = 'build';          // build | countdown | race | done
+let state = 'build';          // build | lobby | countdown | race | done
+let lockT = 0, lobbyKey = '', wake = null;
 let cdT = 0, goAt = 2.9, raceT = 0, endT = 0, winner = -1, doneT = 0;
 let lamps = ['off','off','off','off'];
 let cars = [];
 let drag = null;              // {type, from:{c,r}|null, ox, oy, x, y, moved, sx, sy}
 let clearArm = 0;
-const keyDown = [false, false];
+const keyDown = [false, false, false, false];
 const ptrPress = new Map();   // pointerId -> car index
 let soundOn = true;
 let t0 = performance.now(), clock = 0;
@@ -220,7 +252,7 @@ function audio() {
       const nb = AC.createBuffer(1, AC.sampleRate * 1.5, AC.sampleRate), d = nb.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       AC.noiseBuf = nb;
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 4; i++) {
         const o = AC.createOscillator(), o2 = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
         o.type = 'square'; o2.type = 'sawtooth'; o2.detune.value = -1200 + i * 30;
         f.type = 'lowpass'; f.frequency.value = 1100; g.gain.value = 0;
@@ -349,10 +381,16 @@ function drawLamps(c, cx, cy) {
   }
 }
 function drawLapNumbers(c, cx, cy) {
-  c.font = 'bold italic 14px Verdana, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#111';
-  const left = i => Math.max(0, LAPS - (cars[i] ? cars[i].laps : 0));
-  c.fillText(String(left(0)), cx, cy - 33);
-  c.fillText(String(left(1)), cx, cy + 34);
+  // laps to go: top-lane cars above the gantry, bottom-lane cars below; coloured once there are more than two
+  const rs = cars.filter(car => car.in), many = rs.length > 2;
+  c.font = 'bold italic 14px Verdana, sans-serif'; c.textAlign = 'center';
+  for (const lane of [1, 0]) {
+    const l = rs.filter(car => car.lane0 === lane).sort((a, b) => a.s0 - b.s0);
+    l.forEach((car, k) => {
+      c.fillStyle = many ? CARS[car.i].dark : '#111';
+      c.fillText(String(Math.max(0, LAPS - car.laps)), l.length > 1 ? cx + (k ? 10 : -10) : cx, lane ? cy - 33 : cy + 34);
+    });
+  }
 }
 function drawCar(c, x, y, ang, i, alpha = 1) {
   const C = CARS[i];
@@ -546,7 +584,8 @@ const BIRD_TB = {x: 492, y: 2, w: 48, h: 50};
 const XBOX = {x: 552, y: 21, w: 18, h: 18};
 let NIV, NIV_UP, NIV_DN, BIRD_PANEL;
 function layout(p) {
-  portrait = p; H = p ? 446 + PB : 446; GX = p ? 70 : 0;
+  // OY shifts the board down inside the canvas (0 for now); NIV, BIRD_PANEL and ctrlRect are canvas coordinates
+  portrait = p; GX = p ? 70 : 0; OY = 0; CH = p ? BH + PB : BH;
   NIV = p ? {x: 350, y: 474, k: 1.8} : {x: 596, y: 48, k: 1};
   const {x, y, k} = NIV;
   NIV_UP = {x: x - 8 * k, y: y - 4 * k, w: 28 * k, h: 15 * k}; NIV_DN = {x: x - 8 * k, y: y + 11 * k, w: 28 * k, h: 15 * k};
@@ -556,8 +595,8 @@ layout(false);
 const inR = (r, x, y) => r && x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
 function ctrlRect(i) {
   if (i === 0 && birdMode) return null;
-  if (portrait) return {x: i === 0 ? 14 : 376, y: 446, w: 230, h: PB};   // big thumb zones
-  return i === 0 ? {x: 506, y: 64, w: 72, h: 106} : {x: 506, y: 258, w: 72, h: 106};
+  if (portrait) return i < 2 ? {x: i === 0 ? 14 : 376, y: BH, w: 230, h: PB} : null;   // big thumb zones
+  return i === 0 ? {x: 506, y: 64, w: 72, h: 106} : i === 1 ? {x: 506, y: 258, w: 72, h: 106} : null;
 }
 function drawToolbar(c) {
   c.fillStyle = '#8f0b3c';
@@ -572,6 +611,7 @@ function drawToolbar(c) {
 function drawXBox(c) {
   // yellow outlined square with a thin yellow cross, straight on the crimson band
   const armed = clearArm > clock, {x, y, w, h} = XBOX;
+  if (state !== 'build') { c.fillStyle = '#8f0b3c'; rr(c, x - 6, y - 6, w + 12, h + 12, 5); c.fill(); }   // no toolbar band behind it while racing
   if (armed) { c.fillStyle = '#ff4a3a'; c.fillRect(x, y, w, h); }
   c.strokeStyle = '#ffd81f'; c.lineWidth = 2; c.lineCap = 'square';
   c.strokeRect(x + 1, y + 1, w - 2, h - 2);
@@ -617,9 +657,15 @@ function drawNiv(c) {
   c.beginPath(); c.moveTo(0, 14); c.lineTo(12, 14); c.lineTo(6, 22); c.fill();
   c.restore();
 }
+const ORD = ['1st', '2nd', '3rd', '4th'];
+function fitText(c, text, x, y, maxW, size, weight = 'bold italic') {
+  do c.font = weight + ' ' + size + 'px Verdana, sans-serif'; while (c.measureText(text).width > maxW && --size > 9);
+  c.fillText(text, x, y);
+}
+function racing() { return state === 'countdown' || state === 'race' || state === 'done'; }
 function drawPanelBottom(c) {
   // portrait: red (or the cockatoo) bottom-left, timers in the middle, orange bottom-right
-  const y0 = 446;
+  const y0 = BH;
   c.fillStyle = '#8f0b3c';
   c.beginPath(); c.moveTo(14, y0 + 6); c.lineTo(606, y0); c.lineTo(600, y0 + PB - 8); c.lineTo(20, y0 + PB - 2); c.closePath(); c.fill();
   c.strokeStyle = '#1c1c1c'; c.lineWidth = 2; c.lineCap = 'round';
@@ -634,7 +680,7 @@ function drawPanelBottom(c) {
   drawCtrl(c, 490, y0 + 40, 2.2, 1, 'K', pressed(1));
 }
 function timeOf(i) {
-  const car = cars[i]; if (!car) return 0;
+  const car = cars[i]; if (!car || !car.in) return 0;
   if (car.finishT != null) return car.finishT;
   if (state === 'race') return raceT;
   if (state === 'done') return endT;
@@ -643,11 +689,11 @@ function timeOf(i) {
 
 /* ---------- cars & race ---------- */
 function mkCar(i) {
-  return {i, seg: 0, s: 30, lane: i === 0 ? 1 : 0, v: 0, slip: 0, turn: 0, crash: null, laps: 0, armed: false,
+  return {i, in: false, seg: 0, s: 31, s0: 31, lane: 1, lane0: 1, v: 0, slip: 0, turn: 0, crash: null, laps: 0, armed: false,
           lapStart: 0, best: null, finishT: null, on: false, ai: false, noise: 1};
 }
 function pressed(i) {
-  if (keyDown[i]) return true;
+  if (keyDown[i] || remote[i]) return true;
   for (const v of ptrPress.values()) if (v === i) return true;
   return false;
 }
@@ -659,13 +705,41 @@ function carPose(car) {
   }
   const st = findStart(); if (!st) return null;
   const [cx, cy] = cc(st[0], st[1]);
-  return {x: cx - 10, y: cy + (car.lane === 1 ? -LANE : LANE), ang: 0};
+  return {x: cx - HALF + car.s, y: cy + (car.lane === 1 ? -LANE : LANE), ang: 0};
 }
-function resetCars() { cars = [mkCar(0), mkCar(1)]; cars[0].ai = birdMode; }
-function startRace() {
-  if (!segs || state === 'countdown' || state === 'race') return;
-  audio();
-  resetCars(); state = 'countdown'; cdT = 0; raceT = 0; winner = -1;
+function resetCars(list = [0, 1]) {
+  // seat the racers on the start piece: two lanes, a front and a back row. The back row's lap line
+  // sits the same distance behind, so every car drives exactly the same distance.
+  cars = CARS.map((_, i) => mkCar(i));
+  list.forEach((i, slot) => { const c = cars[i]; c.in = true; c.lane = c.lane0 = slot % 2 ? 0 : 1; c.s = c.s0 = slot < 2 ? 31 : 8; });
+  cars[0].ai = birdMode;
+}
+function lobbyList() {
+  const l = birdMode ? [0] : [];
+  for (let i = birdMode ? 1 : 0; i < 4; i++) if (pressed(i)) l.push(i);
+  return l;
+}
+function lobbyHint() {
+  if (phoneCount()) return 'Everyone hold the button on your phone (or your key) to join. The race starts when nobody joins or lets go for a moment.';
+  if (portrait) return 'Everyone hold your colour to join (up to ' + (birdMode ? 3 : 4) + ' players). The race starts when nobody joins or lets go for a moment.';
+  if (TOUCH) return 'Hold a controller to join. Turn the phone upright to race with up to 4 friends.';
+  return 'Hold your key to join: ' + (birdMode ? '' : 'D red · ') + 'K orange · Z blue · M green.';
+}
+function keepAwake() {
+  try {
+    if (!wake && navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wake = w; w.addEventListener('release', () => { wake = null; }); }).catch(() => {});
+  } catch (e) {}
+}
+function startLobby() {
+  if (!segs || state === 'lobby' || state === 'countdown' || state === 'race') return;
+  audio(); keepAwake();
+  if (birdMode && phoneIn(0)) { birdMode = false; save(); }   // a fourth phone took red from the cockatoo
+  state = 'lobby'; lockT = 0; lobbyKey = null; winner = -1;
+  lamps = ['off','off','off','off'];
+  hintEl.textContent = lobbyHint();
+}
+function beginCountdown() {
+  state = 'countdown'; cdT = 0; raceT = 0; winner = -1;
   goAt = 2.6 + Math.random() * 0.7;
   lamps = ['off','off','off','off'];
   hintEl.textContent = 'Wait for the green light…';
@@ -673,11 +747,21 @@ function startRace() {
 function stopRace() {
   state = 'build'; resetCars(); lamps = ['off','off','off','off']; analyse();
 }
+function humans() { return cars.filter(car => car.in && !car.ai).length; }
+function ranking() {
+  const prog = car => car.laps * 1000 + (car.armed ? car.seg : 0);
+  return cars.filter(car => car.in).sort((a, b) => (a.finishT ?? 1e9) - (b.finishT ?? 1e9) || prog(b) - prog(a));
+}
+function who(i) { return birdMode && i === 0 ? 'Cockatoo' : phoneName(i) || (birdMode && humans() === 1 ? 'You' : CARS[i].name); }
+function winTitle() {
+  if (birdMode && winner === 0) return 'The cockatoo wins!';
+  if (birdMode && humans() === 1 && !phoneName(winner)) return 'You beat the cockatoo!';
+  return (phoneName(winner) || CARS[winner].name) + ' wins!';
+}
 function finishRace(i) {
   winner = i; state = 'done'; endT = raceT; doneT = clock;
-  const humanWon = !(birdMode && i === 0);
   if (birdMode && i === 0) sfx.squawk(); else sfx.fanfare();
-  hintEl.textContent = (birdMode ? (humanWon ? 'You beat the cockatoo!' : 'The cockatoo wins this time.') : CARS[i].name + ' wins!') + ' ' + CLICK + ' the board to go back to building.';
+  hintEl.textContent = winTitle() + ' ' + CLICK + ' the board to race again, or the [x] to edit the track.';
 }
 function lapDone(car) {
   const lt = raceT - car.lapStart; car.lapStart = raceT;
@@ -693,7 +777,8 @@ function crash(car) {
   car.crash = {t: 0, x: p.x, y: p.y, ang: p.ang, vx: Math.cos(p.ang) * car.v * 0.85, vy: Math.sin(p.ang) * car.v * 0.85,
                spin: (car.turn || (Math.random() < 0.5 ? -1 : 1)) * (7 + Math.random() * 7)};
   car.v = 0; car.slip = 0; sfx.crash();
-  if (birdMode && car.i === 1 && Math.random() < 0.5) setTimeout(sfx.squawk, 350);
+  try { if (navigator.vibrate) navigator.vibrate(40); } catch (e) {}
+  if (birdMode && car.i !== 0 && Math.random() < 0.5) setTimeout(sfx.squawk, 350);
 }
 const vlim = r => r === Infinity ? Infinity : Math.sqrt(ALAT * r);
 function brakeDist(v0, v1) {
@@ -723,7 +808,7 @@ function stepCar(car, dt) {
     C.t += dt; C.vx *= k; C.vy *= k; C.spin *= k;
     C.x += C.vx * dt; C.y += C.vy * dt; C.ang += C.spin * dt;
     if (C.x < 8 || C.x > W - 8) { C.vx *= -0.5; C.x = Math.min(W - 8, Math.max(8, C.x)); }
-    if (C.y < 8 || C.y > H - 8) { C.vy *= -0.5; C.y = Math.min(H - 8, Math.max(8, C.y)); }
+    if (C.y < 8 || C.y > BH - 8) { C.vy *= -0.5; C.y = Math.min(BH - 8, Math.max(8, C.y)); }
     if (C.t > 1.9) car.crash = null;
     return;
   }
@@ -740,13 +825,25 @@ function stepCar(car, dt) {
     if (car.seg !== 0) car.armed = true;
     if (car.ai) car.noise = 1 + (Math.random() - 0.5) * 0.018 * (10 - level);
   }
-  if (car.seg === 0 && car.armed && car.s >= L.len / 2) { car.armed = false; if (state === 'race') lapDone(car); }
+  if (car.seg === 0 && car.armed && car.s >= car.s0 + 9) { car.armed = false; if (state === 'race') lapDone(car); }
   car.turn = segs[car.seg].turn;
   const ex = L.r === Infinity ? 0 : car.v * car.v / L.r / ALAT;
   if (ex > 1) car.slip += (ex - 1) * dt * 7; else car.slip = Math.max(0, car.slip - dt * 2.2);
   if (car.slip > 1 || ex > 1.6) crash(car);
 }
 function update(dt) {
+  for (let i = 0; i < 4; i++)               // a phone that went quiet (locked, dropped) lets go of its throttle
+    if (remote[i] && (performance.now() - remoteAt[i] > 1500 || !phoneLive(i))) remote[i] = false;
+  if (state === 'lobby') {
+    const list = lobbyList(), key = list.join();
+    if (key !== lobbyKey) {
+      const before = cars.filter(car => car.in).map(car => car.i);
+      if (lobbyKey !== null) list.filter(i => !before.includes(i)).forEach((i, k) => tone(660 + i * 110, 0.09, 'square', 0.07, k * 0.05));
+      lobbyKey = key; lockT = 0; resetCars(list);
+    } else if (list.length > (birdMode ? 1 : 0)) {
+      lockT += dt; if (lockT >= LOCK) beginCountdown();
+    }
+  }
   if (state === 'countdown') {
     const prev = cdT; cdT += dt;
     [0.6, 1.3, 2.0].forEach((t, k) => { if (prev < t && cdT >= t) { lamps[k + 1] = 'red'; sfx.beep(); } });
@@ -758,13 +855,14 @@ function update(dt) {
   if (state === 'race') raceT += dt;
   if ((state === 'race' || state === 'done' || state === 'countdown') && segs) {
     for (const car of cars) {
+      if (!car.in) { car.on = false; continue; }
       if (car.ai) car.on = aiThrottle(car);
       else car.on = state === 'race' && car.finishT == null && pressed(car.i);
       if (state === 'done') car.on = false;
     }
     const n = Math.max(1, Math.ceil(dt / 0.004)), h = dt / n;
     for (let k = 0; k < n; k++) {
-      for (const car of cars) stepCar(car, h);
+      for (const car of cars) if (car.in) stepCar(car, h);
     }
   } else {
     for (const car of cars) car.on = false;
@@ -776,7 +874,7 @@ function update(dt) {
     cars.forEach((car, i) => {
       const e = engines[i]; if (!e) return;
       const v = car.crash ? 0 : car.v;
-      const active = racing && !(i === 0 && false);
+      const active = racing && car.in;
       e.o.frequency.setTargetAtTime(70 + v * 0.8 + (car.on ? 30 : 0), AC.currentTime, 0.04);
       e.o2.frequency.setTargetAtTime(70 + v * 0.8, AC.currentTime, 0.04);
       e.g.gain.setTargetAtTime(active ? 0.006 + 0.05 * v / VMAX + (car.on ? 0.012 : 0) : 0, AC.currentTime, 0.05);
@@ -792,8 +890,8 @@ let scale = 1, dpr = 1, trackCache = null, trackDirty = true;
 function renderTrackCache() {
   const k = scale * dpr;
   if (!trackCache) trackCache = document.createElement('canvas');
-  trackCache.width = Math.round(W * k); trackCache.height = Math.round(H * k);
-  const c = trackCache.getContext('2d'); c.setTransform(k, 0, 0, k, 0, 0); c.clearRect(0, 0, W, H);
+  trackCache.width = Math.round(W * k); trackCache.height = Math.round(BH * k);
+  const c = trackCache.getContext('2d'); c.setTransform(k, 0, 0, k, 0, 0); c.clearRect(0, 0, W, BH);
   drawTrackVector(c, true);
   trackDirty = false;
 }
@@ -813,7 +911,7 @@ function drawStartDynamic(c) {
   const [x, y] = cc(st[0], st[1]); drawLamps(c, x, y); drawLapNumbers(c, x, y);
 }
 function drawCars(c) {
-  const list = cars.map(car => ({car, p: carPose(car)})).filter(o => o.p);
+  const list = cars.filter(car => car.in).map(car => ({car, p: carPose(car)})).filter(o => o.p);
   for (const {car, p} of list) {
     let a = 1;
     if (car.crash && car.crash.t > 1.2) a = (Math.floor(car.crash.t * 12) % 2) ? 0.25 : 1;
@@ -828,38 +926,56 @@ function drawLoose(c) {
     c.strokeStyle = '#fff'; c.lineWidth = 1; c.stroke();
   }
 }
+function drawLobby(c) {
+  if (state !== 'lobby') return;
+  const st = findStart(), bw = 340, bh = 112, bx = GX + 240 - bw / 2;
+  const by = st && st[1] >= 2 ? 70 : 264;               // keep the start line (and the waiting cars) in view
+  c.save();
+  c.fillStyle = 'rgba(40,6,20,.9)'; rr(c, bx, by, bw, bh, 10); c.fill();
+  c.strokeStyle = '#ffd81f'; c.lineWidth = 2; c.stroke();
+  c.textAlign = 'center'; c.fillStyle = '#ffd81f';
+  fitText(c, phoneCount() ? 'Hold your button to join!' : portrait ? 'Hold your colour to join!' : TOUCH ? 'Hold a controller to join!' : 'Hold your key to join!', bx + bw / 2, by + 34, bw - 30, 22);
+  const n = humans(), ready = n > 0;
+  c.font = '12px Verdana, sans-serif'; c.fillStyle = '#fff';
+  c.fillText(!ready ? 'Waiting for players…' : (birdMode ? 'Cockatoo + ' : '') + n + (n === 1 ? ' player' : ' players') + ' — get ready!', bx + bw / 2, by + 58);
+  const px = bx + 30, pw = bw - 60, py = by + 70;
+  c.fillStyle = '#4a0a22'; rr(c, px, py, pw, 10, 5); c.fill();
+  if (ready) { c.fillStyle = '#30d94e'; rr(c, px, py, Math.max(10, pw * Math.min(1, lockT / LOCK)), 10, 5); c.fill(); }
+  c.fillStyle = '#e7b9c6'; c.font = 'italic 11px Verdana, sans-serif';
+  c.fillText('[x] to go back to building', bx + bw / 2, by + bh - 12);
+  c.restore();
+}
 function drawOverlay(c) {
   if (state !== 'done') return;
-  const a = Math.min(1, (clock - doneT) * 3);
+  const a = Math.min(1, (clock - doneT) * 3), rows = ranking();
   c.save(); c.globalAlpha = a;
-  const bx = portrait ? 145 : 70, by = 120, bw = 330, bh = 170;
+  const bw = 340, bh = 104 + rows.length * 28, bx = GX + 240 - bw / 2, by = Math.round((BH - bh) / 2);
   c.fillStyle = 'rgba(40,6,20,.92)'; rr(c, bx, by, bw, bh, 10); c.fill();
   c.strokeStyle = '#ffd81f'; c.lineWidth = 2; c.stroke();
-  c.textAlign = 'center'; c.fillStyle = '#ffd81f'; c.font = 'bold italic 24px Verdana, sans-serif';
-  const title = birdMode ? (winner === 0 ? 'The cockatoo wins!' : 'You win!') : CARS[winner].name + ' wins!';
-  c.fillText(title, bx + bw / 2, by + 40);
+  c.textAlign = 'center'; c.fillStyle = '#ffd81f';
+  fitText(c, winTitle(), bx + bw / 2, by + 40, bw - 30, 24);
   c.font = '12px Verdana, sans-serif';
-  cars.forEach((car, i) => {
-    const y = by + 78 + i * 28;
-    drawCar(c, bx + 34, y - 4, 0, i);
-    c.textAlign = 'left'; c.fillStyle = '#fff';
-    const who = birdMode ? (i === 0 ? 'Cockatoo' : 'You') : CARS[i].name;
+  rows.forEach((car, k) => {
+    const y = by + 76 + k * 28, i = car.i;
+    drawCar(c, bx + 50, y - 4, 0, i);
+    c.textAlign = 'left'; c.fillStyle = '#ffd81f'; c.fillText(ORD[k], bx + 12, y);
+    c.fillStyle = '#fff';
     const time = car.finishT != null ? car.finishT.toFixed(2) + ' s' : (LAPS - car.laps) + ' lap' + (LAPS - car.laps === 1 ? '' : 's') + ' to go';
-    c.fillText(who, bx + 56, y);
-    c.fillText(time, bx + 150, y);
-    c.fillStyle = '#e7b9c6'; c.fillText(car.best != null ? 'best lap ' + car.best.toFixed(2) : 'no full lap', bx + 236, y);
+    c.fillText(who(i), bx + 70, y);
+    c.fillText(time, bx + 160, y);
+    c.fillStyle = '#e7b9c6'; c.fillText(car.best != null ? 'best ' + car.best.toFixed(2) : 'no full lap', bx + 254, y);
   });
   c.textAlign = 'center'; c.fillStyle = '#e7b9c6'; c.font = 'italic 11px Verdana, sans-serif';
-  if (birdMode) c.fillText('Nivå ' + level + ' · ' + CLICK.toLowerCase() + ' to go back to building', bx + bw / 2, by + bh - 16);
-  else c.fillText(CLICK + ' to go back to building', bx + bw / 2, by + bh - 16);
+  c.fillText((birdMode ? 'Nivå ' + level + ' · ' : '') + CLICK + ' to race again · [x] to edit the track', bx + bw / 2, by + bh - 14);
   c.restore();
 }
 function draw() {
   const k = scale * dpr;
   ctx.setTransform(k, 0, 0, k, 0, 0);
-  ctx.fillStyle = '#ffd81f'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#ffd81f'; ctx.fillRect(0, 0, W, CH);
+  ctx.save(); ctx.translate(0, OY);                      // board coordinates from here on
   if (trackDirty) renderTrackCache();
-  ctx.drawImage(trackCache, 0, 0, W, H);
+  ctx.drawImage(trackCache, 0, 0, W, BH);
   if (state === 'build') drawLoose(ctx);
   drawStartDynamic(ctx);
   drawCars(ctx);
@@ -883,7 +999,9 @@ function draw() {
     }
     ctx.save(); ctx.globalAlpha = 0.85; drawShadow(ctx, drag.type, gx + 3, gy + 5); drawPiece(ctx, drag.type, gx, gy); ctx.restore();
   }
+  drawLobby(ctx);
   drawOverlay(ctx);
+  ctx.restore();
 }
 
 /* ---------- input ---------- */
@@ -893,13 +1011,13 @@ function cellAt(x, y) {
 }
 function toLocal(e) {
   const b = cv.getBoundingClientRect();
-  return [(e.clientX - b.left) / b.width * W, (e.clientY - b.top) / b.height * H];
+  return [(e.clientX - b.left) / b.width * W, (e.clientY - b.top) / b.height * CH];   // canvas coords; board y = y - OY
 }
 cv.addEventListener('pointerdown', e => {
   audio();
-  const [x, y] = toLocal(e);
+  const [x, yc] = toLocal(e), y = yc - OY;
   try { cv.setPointerCapture(e.pointerId); } catch (err) {}
-  for (const i of [0, 1]) if (inR(ctrlRect(i), x, y)) { ptrPress.set(e.pointerId, i); return; }
+  for (let i = 0; i < 4; i++) if (inR(ctrlRect(i), x, yc)) { ptrPress.set(e.pointerId, i); return; }
   if (inR(XBOX, x, y)) {
     if (state === 'build') {
       if (clearArm > clock) {
@@ -908,13 +1026,14 @@ cv.addEventListener('pointerdown', e => {
     } else stopRace();
     return;
   }
-  if (state === 'done') { stopRace(); return; }
+  if (state === 'done') { if (clock - doneT > 0.6) startLobby(); return; }   // rematch (the delay stops a stray tap)
   if (state !== 'build') return;
-  if (birdMode && inR(NIV_UP, x, y)) { level = Math.min(9, level + 1); sfx.click(); save(); return; }
-  if (birdMode && inR(NIV_DN, x, y)) { level = Math.max(1, level - 1); sfx.click(); save(); return; }
-  if (birdMode && inR(BIRD_PANEL, x, y)) { birdMode = false; resetCars(); sfx.click(); save(); return; }
+  if (birdMode && inR(NIV_UP, x, yc)) { level = Math.min(9, level + 1); sfx.click(); save(); return; }
+  if (birdMode && inR(NIV_DN, x, yc)) { level = Math.max(1, level - 1); sfx.click(); save(); return; }
+  if (birdMode && inR(BIRD_PANEL, x, yc)) { birdMode = false; resetCars(); sfx.click(); save(); return; }
+  if (!birdMode && inR(BIRD_TB, x, y) && phoneIn(0)) { sfx.squawk(); return; }   // a phone is driving red
   if (!birdMode && inR(BIRD_TB, x, y)) { birdMode = true; resetCars(); sfx.squawk(); save(); return; }
-  if (segs && ((spot && inR(spot, x, y)) || (!spot && Math.hypot(x - FLAG_FALLBACK.x, y - FLAG_FALLBACK.y) < 40))) { startRace(); return; }
+  if (segs && ((spot && inR(spot, x, y)) || (!spot && Math.hypot(x - FLAG_FALLBACK.x, y - FLAG_FALLBACK.y) < 40))) { startLobby(); return; }
   for (const T of TOOLS) if (inR(T.hit, x, y)) {
     drag = {type: T.t, from: null, ox: (x - T.cx) / ICON, oy: (y - T.cy) / ICON, x, y, sx: x, sy: y, moved: true, id: e.pointerId};
     sfx.click(); return;
@@ -926,7 +1045,7 @@ cv.addEventListener('pointerdown', e => {
   }
 });
 cv.addEventListener('pointermove', e => {
-  const [x, y] = toLocal(e);
+  const [x, yc] = toLocal(e), y = yc - OY;
   if (drag && drag.id === e.pointerId) {
     drag.x = x; drag.y = y;
     if (!drag.moved && Math.hypot(x - drag.sx, y - drag.sy) > 5) { drag.moved = true; trackDirty = true; }
@@ -936,9 +1055,9 @@ cv.addEventListener('pointermove', e => {
   else if (state === 'build') {
     const cl = cellAt(x, y);
     if (TOOLS.some(T => inR(T.hit, x, y)) || (cl && grid[cl.r][cl.c])) cur = 'grab';
-    else if ((segs && spot && inR(spot, x, y)) || inR(XBOX, x, y) || (birdMode ? inR(BIRD_PANEL, x, y) || inR(NIV_UP, x, y) || inR(NIV_DN, x, y) : inR(BIRD_TB, x, y))) cur = 'pointer';
+    else if ((segs && spot && inR(spot, x, y)) || inR(XBOX, x, y) || (birdMode ? inR(BIRD_PANEL, x, yc) || inR(NIV_UP, x, yc) || inR(NIV_DN, x, yc) : inR(BIRD_TB, x, y))) cur = 'pointer';
   } else if (state === 'done' || inR(XBOX, x, y)) cur = 'pointer';
-  if ([0, 1].some(i => inR(ctrlRect(i), x, y))) cur = 'pointer';
+  if ([0, 1, 2, 3].some(i => inR(ctrlRect(i), x, yc))) cur = 'pointer';
   cv.style.cursor = cur;
 });
 function endPointer(e) {
@@ -977,18 +1096,88 @@ function changed() { trackDirty = true; analyse(); resetCars(); save(); }
 
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
-  if (k === 'd' || k === 'k') { audio(); e.preventDefault(); }
-  if (k === 'd' && !birdMode) keyDown[0] = true;
-  if (k === 'k') keyDown[1] = true;
-  if (k === 'enter') { audio(); if (state === 'build') startRace(); else if (state === 'done') stopRace(); }
+  const ki = KEYS.indexOf(k);
+  if (ki >= 0) { audio(); e.preventDefault(); if (!(ki === 0 && birdMode)) keyDown[ki] = true; }
+  if (k === 'enter') startLobby();
   if (k === 'escape' && state !== 'build') stopRace();
 });
 window.addEventListener('keyup', e => {
   const k = e.key.toLowerCase();
-  if (k === 'd') keyDown[0] = false;
-  if (k === 'k') keyDown[1] = false;
+  const ki = KEYS.indexOf(k);
+  if (ki >= 0) keyDown[ki] = false;
 });
-window.addEventListener('blur', () => { keyDown[0] = keyDown[1] = false; ptrPress.clear(); });
+window.addEventListener('blur', () => { keyDown.fill(false); ptrPress.clear(); });
+
+/* ---------- phones as controllers (the TV side) ----------
+   Same pattern and relay as Finger Frolic (shared/net.js): this page hosts a room, each phone opens pad.html, takes a
+   seat (one per car) and sends {on} while its button is held, re-sent every 400 ms so a dropped phone lets go.
+   {go} starts the race from a phone. Opened from file:// the import fails and only keys and on-screen controllers work. */
+const SEATS = ['red', 'orange', 'blue', 'green'];        // seat name per car index
+const remote = [false, false, false, false], remoteAt = [0, 0, 0, 0];
+let room = null, lastSnap = '', lastSendT = -1;
+const phoneIn = i => !!(room && room.seat(SEATS[i]));
+const phoneLive = i => !!(room && room.connected(SEATS[i]));
+const phoneName = i => (phoneIn(i) && room.seat(SEATS[i]).name.trim()) || '';
+const phoneCount = () => SEATS.filter((_, i) => phoneLive(i)).length;
+const joinEl = document.getElementById('phones');
+async function startPhones() {
+  let net, lobby;
+  try { [net, lobby] = await Promise.all([import('./shared/net.js'), import('./shared/lobby.js')]); } catch (e) { return; }
+  await lobby.findLan();
+  // seats fill in this order, so red (the cockatoo's car) goes to a phone only when four have joined
+  room = net.hostRoom({ game: 'bilbanan', seats: ['orange', 'blue', 'green', 'red'], onSeats: renderPhones, onAction: phoneAction, onStatus: phoneStatus });
+  const url = lobby.joinUrl(room.room);
+  document.getElementById('pqr').innerHTML = lobby.qrSvg(url);
+  document.getElementById('pcode').textContent = document.getElementById('pcode2').textContent = room.room;
+  document.getElementById('purl').textContent = url.replace(/^https?:\/\//, '').replace(/\?.*$/, '');
+  joinEl.hidden = false; resize(); renderPhones();
+}
+function phoneAction(seat, body) {
+  const i = SEATS.indexOf(seat);
+  if (i < 0 || !body || typeof body !== 'object') return;
+  if (typeof body.on === 'boolean') { remote[i] = body.on; remoteAt[i] = performance.now(); }
+  if (body.go && (state === 'build' || (state === 'done' && clock - doneT > 1))) startLobby();
+}
+function phoneStatus(s, e) {
+  const el = document.getElementById('pstatus');
+  el.textContent = s === 'open' ? '' : s === 'retrying' ? (e && e.message ? e.message : 'reconnecting to the game server') + '…' : 'connecting…';
+}
+function renderPhones() {
+  if (!room) return;
+  const ul = document.getElementById('plist'); ul.textContent = '';
+  SEATS.forEach((seat, i) => {
+    if (!room.seat(seat)) return;
+    const li = document.createElement('li');
+    li.style.setProperty('--c', CARS[i].body);
+    li.textContent = phoneName(i) || CARS[i].name;
+    if (!phoneLive(i)) li.className = 'away';
+    ul.appendChild(li);
+  });
+  if (!ul.children.length) { const li = document.createElement('li'); li.className = 'none'; li.textContent = 'No phones yet'; ul.appendChild(li); }
+}
+// One message to every phone with every car's numbers: ~8 a second while racing, otherwise only on a change
+// (and a 1 s refresh), and nothing at all while no phone is connected.
+function broadcast() {
+  if (!room || !phoneCount()) return;
+  const live = state === 'countdown' || state === 'race';
+  if (clock - lastSendT < (live ? 0.12 : 0.2)) return;
+  const rk = state === 'done' ? ranking() : null, p = {};
+  SEATS.forEach((seat, i) => {
+    const c = cars[i];
+    p[seat] = {in: c.in, lap: Math.min(LAPS, c.laps + 1), t: Math.round(timeOf(i) * 100) / 100, crash: !!c.crash,
+               held: pressed(i), place: rk ? rk.indexOf(c) + 1 : 0, best: c.best == null ? null : Math.round(c.best * 100) / 100};
+  });
+  const snap = JSON.stringify({t: 's', st: state, lamps, lock: state === 'lobby' ? Math.round(Math.min(1, lockT / LOCK) * 20) / 20 : 0,
+    track: !!segs, laps: LAPS, bird: birdMode, win: state === 'done' ? winTitle() : '', p});
+  if (snap === lastSnap && clock - lastSendT < 1) return;
+  lastSnap = snap; lastSendT = clock;
+  room.all(JSON.parse(snap));
+}
+joinEl.addEventListener('click', () => {
+  joinEl.classList.toggle('mini'); resize();
+  try { localStorage.setItem('bilbanan-phones-mini', joinEl.classList.contains('mini') ? '1' : ''); } catch (e) {}
+});
+try { if (localStorage.getItem('bilbanan-phones-mini')) joinEl.classList.add('mini'); } catch (e) {}
 
 /* ---------- sizing & loop ---------- */
 function resize() {
@@ -997,22 +1186,22 @@ function resize() {
   const bar = document.getElementById('bar');
   const cs = getComputedStyle(document.body);
   const availW = document.body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const availH = document.body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - bar.offsetHeight - document.getElementById('ttl').offsetHeight - 20;
-  scale = Math.max(0.3, Math.min(availW / W, availH / H));
+  const availH = document.body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - bar.offsetHeight - document.getElementById('ttl').offsetHeight - (joinEl.hidden ? 0 : joinEl.offsetHeight + 10) - 20;
+  scale = Math.max(0.3, Math.min(availW / W, availH / CH));
   dpr = Math.min(3, window.devicePixelRatio || 1);
-  cv.style.width = Math.floor(W * scale) + 'px'; cv.style.height = Math.floor(H * scale) + 'px';
-  cv.width = Math.round(W * scale * dpr); cv.height = Math.round(H * scale * dpr);
+  cv.style.width = Math.floor(W * scale) + 'px'; cv.style.height = Math.floor(CH * scale) + 'px';
+  cv.width = Math.round(W * scale * dpr); cv.height = Math.round(CH * scale * dpr);
   trackDirty = true;
 }
 window.addEventListener('resize', resize);
 function frame(now) {
   const dt = Math.min(0.04, (now - t0) / 1000); t0 = now; clock += dt;
-  update(dt); draw();
+  update(dt); draw(); broadcast();
   requestAnimationFrame(frame);
 }
 function start(data) {
   if (data && Array.isArray(data.grid)) { grid = data.grid; birdMode = !!data.bird; level = data.level || level; }
-  resetCars(); analyse(); resize();
+  resetCars(); analyse(); resize(); startPhones();
   requestAnimationFrame(t => { t0 = t; requestAnimationFrame(frame); });
 }
 if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
