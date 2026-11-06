@@ -52,6 +52,9 @@ button{font:bold 12px var(--font);color:var(--key);background:var(--ink);border:
 .pmini{display:none;font:bold 13px var(--font);color:var(--ink)}
 .pmini b{color:var(--board);letter-spacing:.12em}
 .phones.mini{padding:6px 12px}.phones.mini .qr,.phones.mini .ptxt{display:none}.phones.mini .pmini{display:inline}
+body.fs h1,body.fs .keys{display:none}
+body.fs{padding-block:8px}
+button[hidden]{display:none}
 button:focus-visible{outline:2px solid var(--board);outline-offset:2px}
 </style>
 </head>
@@ -70,8 +73,9 @@ button:focus-visible{outline:2px solid var(--board);outline-offset:2px}
 </aside>
 <div class="bar" id="bar">
   <p class="hint" id="hint">Drag track pieces onto the board.</p>
-  <p class="keys">Up to 4 players: hold <kbd>D</kbd> red · <kbd>K</kbd> orange · <kbd>Z</kbd> blue · <kbd>M</kbd> green — or hold the on&#8209;screen controllers</p>
+  <p class="keys">Up to 4 players on one keyboard: hold <kbd>D</kbd> red · <kbd>K</kbd> orange · <kbd>Z</kbd> blue · <kbd>M</kbd> green (<b>+ Player</b> shows blue and green) · <kbd>F</kbd> full screen</p>
   <button id="snd" type="button">Sound on</button>
+  <button id="full" type="button" hidden>Full screen</button>
 </div>
 
 <script>
@@ -123,6 +127,7 @@ let clearArm = 0;
 const keyDown = [false, false, false, false];
 const ptrPress = new Map();   // pointerId -> car index
 let soundOn = true;
+let extra = 0;                // blue and green shown on screen for players sharing the laptop (0-2)
 let t0 = performance.now(), clock = 0;
 
 try {
@@ -131,10 +136,11 @@ try {
     grid = saved.grid.map(r => r.map(v => (v && PIECES[v]) ? v : null));
     if (!grid.some(r => r.includes('ST'))) grid = DEFAULT.map(r => r.slice());
     birdMode = !!saved.bird; level = Math.min(9, Math.max(1, saved.level | 0 || 3));
+    extra = Math.min(2, Math.max(0, saved.extra | 0));
   }
 } catch (e) {}
 function save() {
-  try { localStorage.setItem('bilbanan', JSON.stringify({grid, bird:birdMode, level})); } catch (e) {}
+  try { localStorage.setItem('bilbanan', JSON.stringify({grid, bird:birdMode, level, extra})); } catch (e) {}
 }
 
 /* ---------- geometry ---------- */
@@ -593,10 +599,24 @@ function layout(p) {
 }
 layout(false);
 const inR = (r, x, y) => r && x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
+const shown = i => i < 2 || i - 2 < extra || phoneIn(i);   // blue/green get a controller once added (or a phone holds them)
+function lowCtrls() {
+  // landscape: orange alone at full size, or orange, blue and green side by side
+  const l = [1, 2, 3].filter(shown);
+  if (l.length === 1) return [{i: 1, x: 542, y: 260, s: 1}];
+  const s = l.length === 2 ? 0.92 : 0.76, gap = l.length === 2 ? 62 : 44, x0 = 541 - gap * (l.length - 1) / 2;
+  return l.map((i, k) => ({i, x: x0 + k * gap, y: 262, s}));
+}
+const ADD = {x: 548, y: 368, w: 50, h: 22}, DEL = {x: 488, y: 368, w: 50, h: 22};
+const canAdd = () => !portrait && extra < 2 && state !== 'countdown' && state !== 'race';
+const canDel = () => !portrait && extra > 0 && !phoneIn(1 + extra) && state !== 'countdown' && state !== 'race';
+function addPlayer(n) { const e = Math.min(2, Math.max(0, n)); if (e === extra) return; extra = e; save(); }
 function ctrlRect(i) {
   if (i === 0 && birdMode) return null;
   if (portrait) return i < 2 ? {x: i === 0 ? 14 : 376, y: BH, w: 230, h: PB} : null;   // big thumb zones
-  return i === 0 ? {x: 506, y: 64, w: 72, h: 106} : i === 1 ? {x: 506, y: 258, w: 72, h: 106} : null;
+  if (i === 0) return {x: 506, y: 64, w: 72, h: 106};
+  const b = lowCtrls().find(b => b.i === i);
+  return b ? {x: b.x - 30 * b.s, y: b.y - 2, w: 60 * b.s, h: 104 * b.s} : null;
 }
 function drawToolbar(c) {
   c.fillStyle = '#8f0b3c';
@@ -646,7 +666,14 @@ function drawPanel(c) {
   }
   drawLCD(c, 494, 190, timeOf(0), 0);
   drawLCD(c, 498, 228, timeOf(1), 1);
-  drawCtrl(c, 542, 260, 1, 1, 'K', pressed(1));
+  for (const b of lowCtrls()) drawCtrl(c, b.x, b.y, b.s, b.i, KEYS[b.i].toUpperCase(), pressed(b.i));
+  if (canDel()) drawPill(c, DEL, '− ' + CARS[1 + extra].name);
+  if (canAdd()) drawPill(c, ADD, '+ Player');
+}
+function drawPill(c, r, text) {
+  c.fillStyle = '#ffd81f'; rr(c, r.x, r.y, r.w, r.h, 6); c.fill();
+  c.fillStyle = '#8f0b3c'; c.textAlign = 'center';
+  fitText(c, text, r.x + r.w / 2, r.y + 15, r.w - 6, 11, 'bold');
 }
 function drawNiv(c) {
   c.save(); c.translate(NIV.x, NIV.y); c.scale(NIV.k, NIV.k);
@@ -1018,6 +1045,8 @@ cv.addEventListener('pointerdown', e => {
   const [x, yc] = toLocal(e), y = yc - OY;
   try { cv.setPointerCapture(e.pointerId); } catch (err) {}
   for (let i = 0; i < 4; i++) if (inR(ctrlRect(i), x, yc)) { ptrPress.set(e.pointerId, i); return; }
+  if (canAdd() && inR(ADD, x, yc)) { addPlayer(extra + 1); sfx.click(); return; }
+  if (canDel() && inR(DEL, x, yc)) { addPlayer(extra - 1); sfx.click(); return; }
   if (inR(XBOX, x, y)) {
     if (state === 'build') {
       if (clearArm > clock) {
@@ -1057,7 +1086,7 @@ cv.addEventListener('pointermove', e => {
     if (TOOLS.some(T => inR(T.hit, x, y)) || (cl && grid[cl.r][cl.c])) cur = 'grab';
     else if ((segs && spot && inR(spot, x, y)) || inR(XBOX, x, y) || (birdMode ? inR(BIRD_PANEL, x, yc) || inR(NIV_UP, x, yc) || inR(NIV_DN, x, yc) : inR(BIRD_TB, x, y))) cur = 'pointer';
   } else if (state === 'done' || inR(XBOX, x, y)) cur = 'pointer';
-  if ([0, 1, 2, 3].some(i => inR(ctrlRect(i), x, yc))) cur = 'pointer';
+  if ([0, 1, 2, 3].some(i => inR(ctrlRect(i), x, yc)) || (canAdd() && inR(ADD, x, yc)) || (canDel() && inR(DEL, x, yc))) cur = 'pointer';
   cv.style.cursor = cur;
 });
 function endPointer(e) {
@@ -1097,7 +1126,8 @@ function changed() { trackDirty = true; analyse(); resetCars(); save(); }
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   const ki = KEYS.indexOf(k);
-  if (ki >= 0) { audio(); e.preventDefault(); if (!(ki === 0 && birdMode)) keyDown[ki] = true; }
+  if (ki >= 0) { audio(); e.preventDefault(); if (!(ki === 0 && birdMode)) keyDown[ki] = true; if (ki >= 2 && extra < ki - 1) addPlayer(ki - 1); }
+  if (k === 'f' && !e.repeat) toggleFull();
   if (k === 'enter') startLobby();
   if (k === 'escape' && state !== 'build') stopRace();
 });
@@ -1178,6 +1208,26 @@ joinEl.addEventListener('click', () => {
   try { localStorage.setItem('bilbanan-phones-mini', joinEl.classList.contains('mini') ? '1' : ''); } catch (e) {}
 });
 try { if (localStorage.getItem('bilbanan-phones-mini')) joinEl.classList.add('mini'); } catch (e) {}
+
+/* ---------- full screen ---------- */
+// The whole page goes full screen (so the phone join card stays visible), minus the title and key help.
+const fullBtn = document.getElementById('full'), docEl = document.documentElement;
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+fullBtn.hidden = !(document.fullscreenEnabled || document.webkitFullscreenEnabled);   // not on iPhone
+function toggleFull() {
+  try {
+    if (fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { const r = (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl); if (r && r.catch) r.catch(() => {}); }
+  } catch (e) {}
+}
+function onFull() {
+  document.body.classList.toggle('fs', !!fsEl());
+  fullBtn.textContent = fsEl() ? 'Exit full screen' : 'Full screen';
+  resize();
+}
+fullBtn.addEventListener('click', toggleFull);
+document.addEventListener('fullscreenchange', onFull);
+document.addEventListener('webkitfullscreenchange', onFull);
 
 /* ---------- sizing & loop ---------- */
 function resize() {

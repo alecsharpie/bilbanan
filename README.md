@@ -7,6 +7,8 @@ A browser homage to *Bilbanan*, the Swedish slot-car Shockwave game from the ear
 - Drag track pieces from the top bar onto the board; drop them on the bin to remove them. Click a placed piece to rotate it.
 - Close the loop through the start piece, then click the checkered flag (or press Enter), or tap **Start the race** on a phone.
 - **Hold to join:** everyone holds their button; the race starts once nobody joins or lets go for a moment.
+- **One laptop, up to 4 players:** **D** red, **K** orange, **Z** blue, **M** green. Click **+ Player** on the panel (or just press Z or M) to put blue and green controllers on screen.
+- **Full screen:** the button under the board, or **F**.
 - Hold to speed up, let go to brake. Too fast in a curve and you fly off.
 - Click the cockatoo to race the computer; set its difficulty with **Nivå** 1–9. After a race, click the board (or tap **Race again** on a phone) for a rematch, or the [x] to edit the track.
 
